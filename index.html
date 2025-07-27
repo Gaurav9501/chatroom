@@ -1,0 +1,35 @@
+<script>
+  let socket = io();
+  let form = document.getElementById('form');
+  let myname = document.getElementById('myname');
+  let roomcode = document.getElementById('roomcode');
+  let message = document.getElementById('message');
+  let messageArea = document.getElementById('messageArea');
+  let hasJoinedRoom = false;
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    // join room only once
+    if (!hasJoinedRoom && roomcode.value) {
+        socket.emit('join room', roomcode.value);
+        hasJoinedRoom = true;
+    }
+
+    if (message.value && myname.value && roomcode.value) {
+        socket.emit('chat message', {
+            name: myname.value,
+            room: roomcode.value,
+            message: message.value
+        });
+        message.value = '';
+    }
+  });
+
+  socket.on('chat message', (data) => {
+    let chatContent = document.createElement('p');
+    chatContent.classList.add('message');
+    chatContent.innerHTML = `<span class="username">${data.name}:</span> ${data.message}`;
+    messageArea.appendChild(chatContent);
+  });
+</script>
