@@ -17,9 +17,11 @@ document.addEventListener("DOMContentLoaded", () => {
     ]
   };
 
+  // DOM elements
   const joinBtn = document.getElementById("joinBtn");
   const startAudioCallBtn = document.getElementById("startAudioCallBtn");
   const startVideoCallBtn = document.getElementById("startVideoCallBtn");
+  const dropCallBtn = document.getElementById("dropCallBtn");
   const sendBtn = document.getElementById("sendBtn");
   const messageInput = document.getElementById("messageInput");
   const messageArea = document.getElementById("messageArea");
@@ -139,13 +141,17 @@ document.addEventListener("DOMContentLoaded", () => {
     currentCallType = "audio";
     await startLocalStream("audio");
     startCall();
+    toggleCallButtons(true);
   });
 
   startVideoCallBtn.addEventListener("click", async () => {
     currentCallType = "video";
     await startLocalStream("video");
     startCall();
+    toggleCallButtons(true);
   });
+
+  dropCallBtn.addEventListener("click", dropCall);
 
   async function startLocalStream(type) {
     try {
@@ -212,6 +218,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
     peerConnection.onconnectionstatechange = () => {
       log("Peer connection state:", peerConnection.connectionState);
+      if (peerConnection.connectionState === "disconnected" || peerConnection.connectionState === "failed" || peerConnection.connectionState === "closed") {
+        dropCall();
+      }
     };
 
     if (localStream) {
@@ -228,12 +237,14 @@ document.addEventListener("DOMContentLoaded", () => {
     socket.emit("offer", { offer, roomId });
   }
 
-  // Handle leaving
-  window.addEventListener("beforeunload", () => {
-    socket.emit("leave", { username, roomId });
-  });
+  function dropCall() {
+    log("Dropping the call...");
 
-  socket.on("connect", () => {
-    log("Connected to signaling server");
-  });
-});
+    if (peerConnection) {
+      peerConnection.close();
+      peerConnection = null;
+    }
+
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      localStream
