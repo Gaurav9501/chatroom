@@ -1,6 +1,7 @@
 {
-  "name": "chatroom",
+  "name": "chatapp",
   "version": "1.0.0",
+  "description": "Chat app with video calling and room support",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
