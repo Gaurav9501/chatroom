@@ -7,7 +7,6 @@ body {
 }
 
 #chatSection {
-  display: none;
   margin-top: 20px;
 }
 
@@ -30,11 +29,12 @@ body {
   color: green;
 }
 
-video {
+audio {
   width: 48%;
-  max-height: 200px;
+  max-height: 40px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  margin: 5px;
 }
 
 form > * {
