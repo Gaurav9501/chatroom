@@ -2,7 +2,6 @@ window.onload = () => {
   const socket = io();
   let username, roomId;
   let localStream, remoteStream, peerConnection;
-  let isAudioCall = false;
   let callAccepted = false;
   let isCaller = false;
 
@@ -10,8 +9,8 @@ window.onload = () => {
   const messageInput = document.getElementById('messageInput');
   const messageArea = document.getElementById('messageArea');
 
-  const localVideo = document.getElementById('localVideo');
-  const remoteVideo = document.getElementById('remoteVideo');
+  const localVideo = document.getElementById('localAudio');  // renamed to audio elements or just remove video
+  const remoteVideo = document.getElementById('remoteAudio');
 
   const body = document.body;
   let incomingCallDiv;
@@ -62,8 +61,7 @@ window.onload = () => {
   const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
   // Start call button triggers this:
-  function startCall(videoEnabled = true) {
-    isAudioCall = !videoEnabled;
+  function startCall() {
     callAccepted = false;
     isCaller = true;
 
@@ -107,11 +105,14 @@ window.onload = () => {
     };
   }
 
-  // Actually start WebRTC handshake after accept or call initiation
+  // Start WebRTC with only audio
   function startWebRTC() {
-    navigator.mediaDevices.getUserMedia({ video: !isAudioCall, audio: true }).then(stream => {
+    navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
       localStream = stream;
-      localVideo.srcObject = stream;
+
+      // Create or reset audio elements (if you want to use <audio> elements)
+      // Here we'll keep using the video elements but it can be changed
+      if (localVideo) localVideo.srcObject = stream;
 
       peerConnection = new RTCPeerConnection(servers);
 
@@ -127,7 +128,7 @@ window.onload = () => {
       peerConnection.ontrack = event => {
         if (!remoteStream) {
           remoteStream = new MediaStream();
-          remoteVideo.srcObject = remoteStream;
+          if (remoteVideo) remoteVideo.srcObject = remoteStream;
         }
         remoteStream.addTrack(event.track);
         log('Received remote track');
@@ -151,8 +152,8 @@ window.onload = () => {
         });
       }
     }).catch(err => {
-      log(`Error accessing media devices: ${err.message}`);
-      alert(`Error accessing media devices: ${err.message}`);
+      log(`Error accessing audio devices: ${err.message}`);
+      alert(`Error accessing audio devices: ${err.message}`);
     });
   }
 
@@ -213,8 +214,8 @@ window.onload = () => {
         remoteStream = null;
       }
 
-      localVideo.srcObject = null;
-      remoteVideo.srcObject = null;
+      if (localVideo) localVideo.srcObject = null;
+      if (remoteVideo) remoteVideo.srcObject = null;
     }
   };
 
