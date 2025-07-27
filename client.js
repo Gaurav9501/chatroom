@@ -3,7 +3,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let username, roomId;
   let localStream, peerConnection;
-  let isCaller = false;
   let iceCandidatesQueue = [];
 
   const servers = {
@@ -17,20 +16,19 @@ document.addEventListener("DOMContentLoaded", () => {
     ]
   };
 
-  // DOM elements
   const joinBtn = document.getElementById("joinBtn");
   const callBtn = document.getElementById("callBtn");
   const sendBtn = document.getElementById("sendBtn");
   const messageInput = document.getElementById("messageInput");
   const messageArea = document.getElementById("messageArea");
-  const localVideo = document.getElementById("localVideo");
-  const remoteVideo = document.getElementById("remoteVideo");
+  const localAudio = document.getElementById("localAudio");
+  const remoteAudio = document.getElementById("remoteAudio");
 
   function log(...args) {
     console.log("[Client]", ...args);
   }
 
-  function showMessage(message, sender = 'you') {
+  function showMessage(message, sender = "you") {
     const div = document.createElement("div");
     div.className = `message ${sender}`;
     div.textContent = message;
@@ -39,8 +37,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   joinBtn.addEventListener("click", () => {
-    username = document.getElementById("username").value;
-    roomId = document.getElementById("room").value;
+    username = document.getElementById("username").value.trim();
+    roomId = document.getElementById("room").value.trim();
 
     if (!username || !roomId) {
       alert("Username and Room ID are required");
@@ -52,12 +50,12 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   callBtn.addEventListener("click", async () => {
-    isCaller = true;
     await startLocalStream();
     createPeerConnection();
 
     const offer = await peerConnection.createOffer();
     await peerConnection.setLocalDescription(offer);
+
     log("Sending offer:", offer);
     socket.emit("offer", { offer, roomId });
   });
@@ -85,6 +83,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const answer = await peerConnection.createAnswer();
     await peerConnection.setLocalDescription(answer);
+
     log("Sending answer:", answer);
     socket.emit("answer", { answer, roomId });
   });
@@ -93,34 +92,34 @@ document.addEventListener("DOMContentLoaded", () => {
     log("Received answer:", answer);
     await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 
-    // Apply queued ICE candidates now
     iceCandidatesQueue.forEach(candidate => {
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e =>
-        log("Error adding queued ICE candidate:", e)
-      );
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {
+        log("Error adding queued ICE candidate:", e);
+      });
     });
     iceCandidatesQueue = [];
   });
 
   socket.on("ice-candidate", (candidate) => {
     log("Received ICE candidate:", candidate);
-    if (peerConnection && peerConnection.remoteDescription?.type) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e =>
-        log("Error adding ICE candidate:", e)
-      );
+    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {
+        log("Error adding ICE candidate:", e);
+      });
     } else {
       iceCandidatesQueue.push(candidate);
-      log("ICE candidate queued");
+      log("Remote description not ready, ICE candidate queued");
     }
   });
 
   async function startLocalStream() {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      localVideo.srcObject = localStream;
-      log("Local stream started");
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+      localAudio.srcObject = localStream;
+      log("Local audio stream started");
     } catch (e) {
-      log("Error getting local media:", e);
+      log("Error getting local audio:", e);
+      alert("Could not access microphone.");
     }
   }
 
@@ -136,7 +135,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     peerConnection.ontrack = (event) => {
       log("Received remote track");
-      remoteVideo.srcObject = event.streams[0];
+      remoteAudio.srcObject = event.streams[0];
     };
 
     peerConnection.onconnectionstatechange = () => {
