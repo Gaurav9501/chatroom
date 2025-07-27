@@ -8,128 +8,159 @@ const servers = {
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
 };
 
-const messageForm = document.getElementById('messageForm');
-const messageInput = document.getElementById('messageInput');
-const messageArea = document.getElementById('messageArea');
-
-const localVideo = document.getElementById('localVideo');
-const remoteVideo = document.getElementById('remoteVideo');
+function log(...args) {
+  console.log("[Client]", ...args);
+}
 
 function joinRoom() {
   username = document.getElementById('username').value.trim();
   roomId = document.getElementById('room').value.trim();
 
-  if (!username || !roomId) return alert("Enter name and room!");
+  if (!username || !roomId) {
+    alert("Username and room ID are required");
+    return;
+  }
 
+  log("Joining room:", roomId, "as:", username);
   socket.emit('join-room', roomId, username);
   document.getElementById('chatSection').classList.remove('hidden');
 }
 
-messageForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (messageInput.value.trim()) {
-    socket.emit('send-message', messageInput.value.trim());
-    appendMessage(`You: ${messageInput.value.trim()}`, true);
-    messageInput.value = '';
+document.getElementById('joinBtn').addEventListener('click', joinRoom);
+
+document.getElementById('sendBtn').addEventListener('click', () => {
+  const msg = document.getElementById('messageInput').value.trim();
+  if (msg) {
+    socket.emit('send-message', msg);
+    log("Sent message:", msg);
+    document.getElementById('messageInput').value = '';
   }
 });
 
+document.getElementById('callBtn').addEventListener('click', startCall);
+
 socket.on('receive-message', ({ message, username: from }) => {
-  appendMessage(`${from}: ${message}`, false);
+  log(`Message from ${from}:`, message);
 });
 
 socket.on('user-joined', (user) => {
-  appendMessage(`${user} joined the chat.`, false);
+  log(`${user} joined the room.`);
 });
 
 socket.on('user-left', (user) => {
-  appendMessage(`${user} left the chat.`, false);
+  log(`${user} left the room.`);
 });
 
-function appendMessage(msg, isSender) {
-  const div = document.createElement('div');
-  div.className = `message ${isSender ? 'sender' : 'receiver'}`;
-  div.textContent = msg;
-  messageArea.appendChild(div);
-  messageArea.scrollTop = messageArea.scrollHeight;
-}
+socket.on('room-full', () => {
+  log("Room is full. Cannot join.");
+});
 
 function setupPeerConnection() {
+  log("Creating RTCPeerConnection");
   peerConnection = new RTCPeerConnection(servers);
 
-  peerConnection.onicecandidate = (event) => {
+  peerConnection.onicecandidate = event => {
     if (event.candidate) {
+      log("Sending ICE candidate:", event.candidate);
       socket.emit('ice-candidate', event.candidate);
     }
   };
 
-  peerConnection.ontrack = (event) => {
+  peerConnection.ontrack = event => {
+    log("Received remote track");
+    const remoteVideo = document.getElementById('remoteVideo');
     if (remoteVideo.srcObject !== event.streams[0]) {
       remoteVideo.srcObject = event.streams[0];
+      log("Set remote video stream");
     }
   };
 
+  peerConnection.onconnectionstatechange = () => {
+    log("Peer connection state:", peerConnection.connectionState);
+  };
+
   if (localStream) {
-    localStream.getTracks().forEach(track =>
-      peerConnection.addTrack(track, localStream)
-    );
+    log("Adding local stream tracks to peer connection");
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+    });
   }
 }
 
 function startCall() {
   isCaller = true;
+  log("Starting call...");
+
   navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
     localStream = stream;
-    localVideo.srcObject = stream;
+    document.getElementById('localVideo').srcObject = stream;
+    log("Got local media stream");
 
     setupPeerConnection();
 
     peerConnection.createOffer().then(offer => {
+      log("Created offer:", offer);
       return peerConnection.setLocalDescription(offer);
     }).then(() => {
+      log("Sending offer to peer");
       socket.emit('offer', peerConnection.localDescription);
+    }).catch(err => {
+      log("Error creating offer:", err);
     });
   }).catch(err => {
-    alert("Media device error: " + err);
+    log("Error accessing media devices:", err);
   });
 }
 
 socket.on('offer', (offer) => {
+  log("Received offer:", offer);
   isCaller = false;
+
   navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
     localStream = stream;
-    localVideo.srcObject = stream;
+    document.getElementById('localVideo').srcObject = stream;
+    log("Got local stream after offer");
 
     setupPeerConnection();
 
     peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+      log("Set remote description from offer");
       return peerConnection.createAnswer();
     }).then(answer => {
+      log("Created answer:", answer);
       return peerConnection.setLocalDescription(answer);
     }).then(() => {
+      log("Sending answer");
       socket.emit('answer', peerConnection.localDescription);
     });
 
     iceCandidatesQueue.forEach(candidate => {
+      log("Adding queued ICE candidate:", candidate);
       peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     });
     iceCandidatesQueue = [];
+  }).catch(err => {
+    log("Error getting stream for answer:", err);
   });
 });
 
 socket.on('answer', (answer) => {
-  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  log("Received answer:", answer);
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+    .then(() => log("Set remote description from answer"))
+    .catch(err => log("Failed to set remote desc:", err));
 });
 
 socket.on('ice-candidate', (candidate) => {
+  log("Received ICE candidate:", candidate);
   const rtcCandidate = new RTCIceCandidate(candidate);
+
   if (peerConnection && peerConnection.remoteDescription?.type) {
-    peerConnection.addIceCandidate(rtcCandidate);
+    peerConnection.addIceCandidate(rtcCandidate)
+      .then(() => log("Added ICE candidate"))
+      .catch(err => log("Failed to add ICE candidate:", err));
   } else {
+    log("Queueing ICE candidate (remote not ready)");
     iceCandidatesQueue.push(candidate);
   }
-});
-
-socket.on('room-full', () => {
-  alert('Room is full. Cannot join.');
 });
