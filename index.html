@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Audio & Video Chat Room</title>
+  <title>Audio & Video Chat Room with Drop Call</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -94,6 +94,11 @@
       max-width: 300px;
     }
 
+    /* Hide media elements initially */
+    #localVideo, #remoteVideo, #localAudio, #remoteAudio {
+      display: none;
+    }
+
     @media (max-width: 768px) {
       video, audio {
         width: 100%;
@@ -104,7 +109,7 @@
 </head>
 <body>
 
-  <h2>Audio & Video Chat Room</h2>
+  <h2>Audio & Video Chat Room with Drop Call</h2>
 
   <div class="controls">
     <input id="username" placeholder="Your Name" />
@@ -112,6 +117,7 @@
     <button id="joinBtn">Join Room</button>
     <button id="startAudioCallBtn" disabled>Start Audio Call</button>
     <button id="startVideoCallBtn" disabled>Start Video Call</button>
+    <button id="dropCallBtn" disabled>Drop Call</button>
     <input id="messageInput" placeholder="Type a message" />
     <button id="sendBtn" disabled>Send Message</button>
   </div>
