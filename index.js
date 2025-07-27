@@ -18,7 +18,7 @@ io.on('connection', socket => {
   socket.on('join-room', (roomId, username) => {
     const clients = io.sockets.adapter.rooms.get(roomId) || new Set();
 
-    // Optional: limit room to 2 participants
+    // Limit room to 2 participants
     if (clients.size >= 2) {
       socket.emit('room-full');
       return;
