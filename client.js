@@ -1,4 +1,4 @@
-document.addEventListener("DOMContentLoaded", () => {
+window.onload = () => {
   const socket = io();
   let username, roomId;
   let localStream, remoteStream, peerConnection;
@@ -12,13 +12,16 @@ document.addEventListener("DOMContentLoaded", () => {
   const remoteVideo = document.getElementById('remoteVideo');
 
   function joinRoom() {
-    username = document.getElementById('username').value;
-    roomId = document.getElementById('room').value;
+    username = document.getElementById('username').value.trim();
+    roomId = document.getElementById('room').value.trim();
 
-    if (!username || !roomId) return alert("Enter name and room!");
+    if (!username || !roomId) {
+      alert("Enter name and room!");
+      return;
+    }
 
     socket.emit('join-room', roomId, username);
-    document.getElementById('chatSection').classList.remove('hidden');
+    document.getElementById('chatSection').style.display = 'block';
     log(`Joined room: ${roomId} as ${username}`);
   }
 
@@ -30,9 +33,9 @@ document.addEventListener("DOMContentLoaded", () => {
     appendMessage(`${user} left the chat.`, false);
   });
 
-  messageForm.addEventListener('submit', (e) => {
+  messageForm.addEventListener('submit', e => {
     e.preventDefault();
-    if (messageInput.value) {
+    if (messageInput.value.trim()) {
       socket.emit('send-message', messageInput.value);
       appendMessage(`You: ${messageInput.value}`, true);
       messageInput.value = '';
@@ -45,15 +48,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function appendMessage(msg, isSender) {
     const div = document.createElement('div');
-    div.className = `message ${isSender ? 'sender' : 'receiver'}`;
+    div.className = isSender ? 'message sender' : 'message receiver';
     div.textContent = msg;
     messageArea.appendChild(div);
     messageArea.scrollTop = messageArea.scrollHeight;
   }
 
-  const servers = {
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-  };
+  const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
   function startCall(videoEnabled = true) {
     isAudioCall = !videoEnabled;
@@ -63,18 +64,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
       peerConnection = new RTCPeerConnection(servers);
 
-      stream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, stream);
-      });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
-      peerConnection.onicecandidate = (event) => {
+      peerConnection.onicecandidate = event => {
         if (event.candidate) {
           socket.emit('ice-candidate', event.candidate);
           log('Sent ICE candidate');
         }
       };
 
-      peerConnection.ontrack = (event) => {
+      peerConnection.ontrack = event => {
         if (!remoteStream) {
           remoteStream = new MediaStream();
           remoteVideo.srcObject = remoteStream;
@@ -92,21 +91,20 @@ document.addEventListener("DOMContentLoaded", () => {
         socket.emit('offer', offer);
         log('Sent offer');
       });
-    }).catch(error => {
-      log(`Error accessing media devices: ${error.message}`);
+    }).catch(err => {
+      log(`Error accessing media devices: ${err.message}`);
+      alert(`Error accessing media devices: ${err.message}`);
     });
   }
 
-  socket.on('offer', (offer) => {
+  socket.on('offer', offer => {
     navigator.mediaDevices.getUserMedia({ video: !isAudioCall, audio: true }).then(stream => {
       localStream = stream;
       localVideo.srcObject = stream;
 
       peerConnection = new RTCPeerConnection(servers);
 
-      stream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, stream);
-      });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
       peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
         log('Received offer and set remote description');
@@ -117,14 +115,14 @@ document.addEventListener("DOMContentLoaded", () => {
         log('Sent answer');
       });
 
-      peerConnection.onicecandidate = (event) => {
+      peerConnection.onicecandidate = event => {
         if (event.candidate) {
           socket.emit('ice-candidate', event.candidate);
           log('Sent ICE candidate');
         }
       };
 
-      peerConnection.ontrack = (event) => {
+      peerConnection.ontrack = event => {
         if (!remoteStream) {
           remoteStream = new MediaStream();
           remoteVideo.srcObject = remoteStream;
@@ -136,22 +134,23 @@ document.addEventListener("DOMContentLoaded", () => {
       peerConnection.onconnectionstatechange = () => {
         log(`[Client] Peer connection state: ${peerConnection.connectionState}`);
       };
-    }).catch(error => {
-      log(`Error accessing media devices: ${error.message}`);
+    }).catch(err => {
+      log(`Error accessing media devices: ${err.message}`);
+      alert(`Error accessing media devices: ${err.message}`);
     });
   });
 
-  socket.on('answer', (answer) => {
+  socket.on('answer', answer => {
     peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
     log('Received answer');
   });
 
-  socket.on('ice-candidate', (candidate) => {
+  socket.on('ice-candidate', candidate => {
     peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
     log('Received ICE candidate');
   });
 
-  window.dropCall = function() {
+  window.dropCall = () => {
     if (peerConnection) {
       peerConnection.close();
       peerConnection = null;
@@ -176,7 +175,6 @@ document.addEventListener("DOMContentLoaded", () => {
     console.log(`[LOG] ${msg}`);
   }
 
-  // Attach joinRoom to global so button onclick can call it
   window.joinRoom = joinRoom;
   window.startCall = startCall;
-});
+};
