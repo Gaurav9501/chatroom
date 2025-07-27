@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
   let username, roomId;
   let localStream, peerConnection;
   let iceCandidatesQueue = [];
+  let isCallStarted = false;
 
   const servers = {
     iceServers: [
@@ -17,10 +18,14 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   const joinBtn = document.getElementById("joinBtn");
-  const callBtn = document.getElementById("callBtn");
+  const startAudioCallBtn = document.getElementById("startAudioCallBtn");
+  const startVideoCallBtn = document.getElementById("startVideoCallBtn");
   const sendBtn = document.getElementById("sendBtn");
   const messageInput = document.getElementById("messageInput");
   const messageArea = document.getElementById("messageArea");
+
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
   const localAudio = document.getElementById("localAudio");
   const remoteAudio = document.getElementById("remoteAudio");
 
@@ -30,8 +35,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function showMessage(message, sender = "you") {
     const div = document.createElement("div");
-    div.className = `message ${sender}`;
-    div.textContent = message;
+    if (sender === "info") {
+      div.className = "info";
+      div.textContent = message;
+    } else {
+      div.className = `message ${sender}`;
+      div.textContent = message;
+    }
     messageArea.appendChild(div);
     messageArea.scrollTop = messageArea.scrollHeight;
   }
@@ -47,17 +57,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     socket.emit("join", { username, roomId });
     log("Joined room:", roomId);
-  });
 
-  callBtn.addEventListener("click", async () => {
-    await startLocalStream();
-    createPeerConnection();
+    showMessage(`${username} joined the room`, "info");
 
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-
-    log("Sending offer:", offer);
-    socket.emit("offer", { offer, roomId });
+    // Enable call buttons and send message button after joining
+    startAudioCallBtn.disabled = false;
+    startVideoCallBtn.disabled = false;
+    sendBtn.disabled = false;
   });
 
   sendBtn.addEventListener("click", () => {
@@ -75,10 +81,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  socket.on("user-joined", (user) => {
+    if (user !== username) {
+      showMessage(`${user} joined the room`, "info");
+    }
+  });
+
+  socket.on("user-left", (user) => {
+    showMessage(`${user} left the room`, "info");
+  });
+
   socket.on("offer", async ({ offer }) => {
     log("Received offer:", offer);
-    await startLocalStream();
+    if (!localStream) {
+      await startLocalStream(currentCallType);
+    }
     createPeerConnection();
+
     await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
 
     const answer = await peerConnection.createAnswer();
@@ -112,18 +131,60 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  async function startLocalStream() {
+  // --- Call buttons logic ---
+
+  let currentCallType = null; // "audio" or "video"
+
+  startAudioCallBtn.addEventListener("click", async () => {
+    currentCallType = "audio";
+    await startLocalStream("audio");
+    startCall();
+  });
+
+  startVideoCallBtn.addEventListener("click", async () => {
+    currentCallType = "video";
+    await startLocalStream("video");
+    startCall();
+  });
+
+  async function startLocalStream(type) {
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      localAudio.srcObject = localStream;
-      log("Local audio stream started");
+      if (localStream) {
+        // stop old tracks
+        localStream.getTracks().forEach(track => track.stop());
+      }
+      let constraints;
+      if (type === "audio") {
+        constraints = { audio: true, video: false };
+      } else if (type === "video") {
+        constraints = { audio: true, video: true };
+      } else {
+        constraints = { audio: true, video: false };
+      }
+      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+
+      if (type === "audio") {
+        localAudio.srcObject = localStream;
+        localAudio.style.display = "inline-block";
+        localVideo.style.display = "none";
+      } else {
+        localVideo.srcObject = localStream;
+        localVideo.style.display = "inline-block";
+        localAudio.style.display = "none";
+      }
+
+      log("Local stream started", type);
     } catch (e) {
-      log("Error getting local audio:", e);
-      alert("Could not access microphone.");
+      log("Error accessing media devices", e);
+      alert("Could not access microphone/camera.");
     }
   }
 
   function createPeerConnection() {
+    if (peerConnection) {
+      peerConnection.close();
+      peerConnection = null;
+    }
     peerConnection = new RTCPeerConnection(servers);
 
     peerConnection.onicecandidate = (event) => {
@@ -135,7 +196,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
     peerConnection.ontrack = (event) => {
       log("Received remote track");
-      remoteAudio.srcObject = event.streams[0];
+
+      // Detect video or audio track
+      const track = event.track;
+      if (track.kind === "video") {
+        remoteVideo.srcObject = event.streams[0];
+        remoteVideo.style.display = "inline-block";
+        remoteAudio.style.display = "none";
+      } else if (track.kind === "audio") {
+        remoteAudio.srcObject = event.streams[0];
+        remoteAudio.style.display = "inline-block";
+        remoteVideo.style.display = "none";
+      }
     };
 
     peerConnection.onconnectionstatechange = () => {
@@ -147,4 +219,21 @@ document.addEventListener("DOMContentLoaded", () => {
       log("Tracks added to peer connection");
     }
   }
+
+  async function startCall() {
+    createPeerConnection();
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    log("Sending offer:", offer);
+    socket.emit("offer", { offer, roomId });
+  }
+
+  // Handle leaving
+  window.addEventListener("beforeunload", () => {
+    socket.emit("leave", { username, roomId });
+  });
+
+  socket.on("connect", () => {
+    log("Connected to signaling server");
+  });
 });
