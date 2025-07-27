@@ -1,17 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>WebRTC Video Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body {
-      font-family: sans-serif;
+      font-family: Arial, sans-serif;
       margin: 0;
       padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      background-color: #f2f2f2;
+    }
+
+    h2 {
+      margin-bottom: 20px;
     }
 
     .controls {
@@ -27,19 +32,51 @@
       font-size: 16px;
     }
 
-    video {
-      width: 45%;
-      max-width: 400px;
-      margin: 10px;
-      background: #000;
-      border: 1px solid #ccc;
-    }
-
     .video-container {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    video {
+      width: 45%;
+      max-width: 400px;
+      background: #000;
+      border: 1px solid #ccc;
+    }
+
+    #messageArea {
+      width: 100%;
+      max-width: 800px;
+      height: 200px;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #ccc;
+      padding: 10px;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+
+    .message {
+      padding: 5px 10px;
+      margin: 5px 0;
+      border-radius: 5px;
+      max-width: 80%;
+      word-wrap: break-word;
+    }
+
+    .you {
+      background-color: #d1e7dd;
+      align-self: flex-end;
+      text-align: right;
+    }
+
+    .other {
+      background-color: #f8d7da;
+      align-self: flex-start;
+      text-align: left;
     }
 
     @media (max-width: 768px) {
@@ -67,7 +104,8 @@
     <video id="remoteVideo" autoplay playsinline></video>
   </div>
 
-  <!-- Socket.io & Client Script -->
+  <div id="messageArea"></div>
+
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
