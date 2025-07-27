@@ -9,8 +9,8 @@ window.onload = () => {
   const messageInput = document.getElementById('messageInput');
   const messageArea = document.getElementById('messageArea');
 
-  const localVideo = document.getElementById('localAudio');  // renamed to audio elements or just remove video
-  const remoteVideo = document.getElementById('remoteAudio');
+  const localAudio = document.getElementById('localAudio');
+  const remoteAudio = document.getElementById('remoteAudio');
 
   const body = document.body;
   let incomingCallDiv;
@@ -35,6 +35,7 @@ window.onload = () => {
 
   socket.on('user-left', (user) => {
     appendMessage(`${user} left the chat.`, false);
+    dropCall();
   });
 
   messageForm.addEventListener('submit', e => {
@@ -60,7 +61,6 @@ window.onload = () => {
 
   const servers = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 
-  // Start call button triggers this:
   function startCall() {
     callAccepted = false;
     isCaller = true;
@@ -69,9 +69,8 @@ window.onload = () => {
     log('Sent incoming call request');
   }
 
-  // Show incoming call popup
   function showIncomingCallPopup() {
-    if (incomingCallDiv) return; // already showing
+    if (incomingCallDiv) return;
 
     incomingCallDiv = document.createElement('div');
     incomingCallDiv.style = `
@@ -105,14 +104,10 @@ window.onload = () => {
     };
   }
 
-  // Start WebRTC with only audio
   function startWebRTC() {
     navigator.mediaDevices.getUserMedia({ audio: true, video: false }).then(stream => {
       localStream = stream;
-
-      // Create or reset audio elements (if you want to use <audio> elements)
-      // Here we'll keep using the video elements but it can be changed
-      if (localVideo) localVideo.srcObject = stream;
+      localAudio.srcObject = stream;
 
       peerConnection = new RTCPeerConnection(servers);
 
@@ -128,36 +123,41 @@ window.onload = () => {
       peerConnection.ontrack = event => {
         if (!remoteStream) {
           remoteStream = new MediaStream();
-          if (remoteVideo) remoteVideo.srcObject = remoteStream;
+          remoteAudio.srcObject = remoteStream;
         }
         remoteStream.addTrack(event.track);
         log('Received remote track');
       };
 
-      peerConnection.onconnectionstatechange = () => {
-        log(`[Client] Peer connection state: ${peerConnection.connectionState}`);
+      peerConnection.oniceconnectionstatechange = () => {
+        log('ICE connection state: ' + peerConnection.iceConnectionState);
+        if (peerConnection.iceConnectionState === 'failed' || peerConnection.iceConnectionState === 'disconnected') {
+          dropCall();
+        }
       };
 
       if (isCaller) {
-        peerConnection.createOffer().then(offer => {
-          peerConnection.setLocalDescription(offer);
-          socket.emit('offer', offer);
-          log('Sent offer');
-        });
+        peerConnection.createOffer()
+          .then(offer => peerConnection.setLocalDescription(offer))
+          .then(() => {
+            socket.emit('offer', peerConnection.localDescription);
+            log('Sent offer');
+          })
+          .catch(err => log('Error creating offer: ' + err));
       } else {
-        peerConnection.createAnswer().then(answer => {
-          peerConnection.setLocalDescription(answer);
-          socket.emit('answer', answer);
-          log('Sent answer');
-        });
+        peerConnection.createAnswer()
+          .then(answer => peerConnection.setLocalDescription(answer))
+          .then(() => {
+            socket.emit('answer', peerConnection.localDescription);
+            log('Sent answer');
+          })
+          .catch(err => log('Error creating answer: ' + err));
       }
     }).catch(err => {
       log(`Error accessing audio devices: ${err.message}`);
       alert(`Error accessing audio devices: ${err.message}`);
     });
   }
-
-  // Socket events:
 
   socket.on('incoming-call', () => {
     log('Incoming call received');
@@ -179,23 +179,21 @@ window.onload = () => {
     if (!peerConnection) {
       startWebRTC();
     }
-    peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-    log('Received offer and set remote description');
+    peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
+      .then(() => log('Received offer and set remote description'))
+      .catch(err => log('Error setting remote description: ' + err));
   });
 
   socket.on('answer', (answer) => {
-    peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-    log('Received answer');
+    peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
+      .then(() => log('Received answer'))
+      .catch(err => log('Error setting remote description: ' + err));
   });
 
   socket.on('ice-candidate', (candidate) => {
-    peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    log('Received ICE candidate');
-  });
-
-  socket.on('user-left', (user) => {
-    appendMessage(`${user} left the chat.`, false);
-    dropCall();
+    peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+      .then(() => log('Added ICE candidate'))
+      .catch(err => log('Error adding ICE candidate: ' + err));
   });
 
   window.dropCall = () => {
@@ -214,8 +212,8 @@ window.onload = () => {
         remoteStream = null;
       }
 
-      if (localVideo) localVideo.srcObject = null;
-      if (remoteVideo) remoteVideo.srcObject = null;
+      localAudio.srcObject = null;
+      remoteAudio.srcObject = null;
     }
   };
 
