@@ -1,166 +1,151 @@
-const socket = io();
-let username, roomId;
-let localStream, peerConnection;
-let isCaller = false;
-let iceCandidatesQueue = [];
+document.addEventListener("DOMContentLoaded", () => {
+  const socket = io();
 
-const servers = {
-  iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
-};
+  let username, roomId;
+  let localStream, peerConnection;
+  let isCaller = false;
+  let iceCandidatesQueue = [];
 
-function log(...args) {
-  console.log("[Client]", ...args);
-}
+  const servers = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      {
+        urls: "turn:openrelay.metered.ca:80",
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
+    ]
+  };
 
-function joinRoom() {
-  username = document.getElementById('username').value.trim();
-  roomId = document.getElementById('room').value.trim();
+  // DOM elements
+  const joinBtn = document.getElementById("joinBtn");
+  const callBtn = document.getElementById("callBtn");
+  const sendBtn = document.getElementById("sendBtn");
+  const messageInput = document.getElementById("messageInput");
+  const messageArea = document.getElementById("messageArea");
+  const localVideo = document.getElementById("localVideo");
+  const remoteVideo = document.getElementById("remoteVideo");
 
-  if (!username || !roomId) {
-    alert("Username and room ID are required");
-    return;
+  function log(...args) {
+    console.log("[Client]", ...args);
   }
 
-  log("Joining room:", roomId, "as:", username);
-  socket.emit('join-room', roomId, username);
-  document.getElementById('chatSection').classList.remove('hidden');
-}
-
-document.getElementById('joinBtn').addEventListener('click', joinRoom);
-
-document.getElementById('sendBtn').addEventListener('click', () => {
-  const msg = document.getElementById('messageInput').value.trim();
-  if (msg) {
-    socket.emit('send-message', msg);
-    log("Sent message:", msg);
-    document.getElementById('messageInput').value = '';
+  function showMessage(message, sender = 'you') {
+    const div = document.createElement("div");
+    div.className = `message ${sender}`;
+    div.textContent = message;
+    messageArea.appendChild(div);
+    messageArea.scrollTop = messageArea.scrollHeight;
   }
-});
 
-document.getElementById('callBtn').addEventListener('click', startCall);
+  joinBtn.addEventListener("click", () => {
+    username = document.getElementById("username").value;
+    roomId = document.getElementById("room").value;
 
-socket.on('receive-message', ({ message, username: from }) => {
-  log(`Message from ${from}:`, message);
-});
-
-socket.on('user-joined', (user) => {
-  log(`${user} joined the room.`);
-});
-
-socket.on('user-left', (user) => {
-  log(`${user} left the room.`);
-});
-
-socket.on('room-full', () => {
-  log("Room is full. Cannot join.");
-});
-
-function setupPeerConnection() {
-  log("Creating RTCPeerConnection");
-  peerConnection = new RTCPeerConnection(servers);
-
-  peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-      log("Sending ICE candidate:", event.candidate);
-      socket.emit('ice-candidate', event.candidate);
+    if (!username || !roomId) {
+      alert("Username and Room ID are required");
+      return;
     }
-  };
 
-  peerConnection.ontrack = event => {
-    log("Received remote track");
-    const remoteVideo = document.getElementById('remoteVideo');
-    if (remoteVideo.srcObject !== event.streams[0]) {
-      remoteVideo.srcObject = event.streams[0];
-      log("Set remote video stream");
-    }
-  };
-
-  peerConnection.onconnectionstatechange = () => {
-    log("Peer connection state:", peerConnection.connectionState);
-  };
-
-  if (localStream) {
-    log("Adding local stream tracks to peer connection");
-    localStream.getTracks().forEach(track => {
-      peerConnection.addTrack(track, localStream);
-    });
-  }
-}
-
-function startCall() {
-  isCaller = true;
-  log("Starting call...");
-
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-    localStream = stream;
-    document.getElementById('localVideo').srcObject = stream;
-    log("Got local media stream");
-
-    setupPeerConnection();
-
-    peerConnection.createOffer().then(offer => {
-      log("Created offer:", offer);
-      return peerConnection.setLocalDescription(offer);
-    }).then(() => {
-      log("Sending offer to peer");
-      socket.emit('offer', peerConnection.localDescription);
-    }).catch(err => {
-      log("Error creating offer:", err);
-    });
-  }).catch(err => {
-    log("Error accessing media devices:", err);
+    socket.emit("join", { username, roomId });
+    log("Joined room:", roomId);
   });
-}
 
-socket.on('offer', (offer) => {
-  log("Received offer:", offer);
-  isCaller = false;
+  callBtn.addEventListener("click", async () => {
+    isCaller = true;
+    await startLocalStream();
+    createPeerConnection();
 
-  navigator.mediaDevices.getUserMedia({ video: true, audio: true }).then(stream => {
-    localStream = stream;
-    document.getElementById('localVideo').srcObject = stream;
-    log("Got local stream after offer");
+    const offer = await peerConnection.createOffer();
+    await peerConnection.setLocalDescription(offer);
+    log("Sending offer:", offer);
+    socket.emit("offer", { offer, roomId });
+  });
 
-    setupPeerConnection();
+  sendBtn.addEventListener("click", () => {
+    const message = messageInput.value.trim();
+    if (message) {
+      socket.emit("chat", { roomId, message, sender: username });
+      showMessage(message, "you");
+      messageInput.value = "";
+    }
+  });
 
-    peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
-      log("Set remote description from offer");
-      return peerConnection.createAnswer();
-    }).then(answer => {
-      log("Created answer:", answer);
-      return peerConnection.setLocalDescription(answer);
-    }).then(() => {
-      log("Sending answer");
-      socket.emit('answer', peerConnection.localDescription);
-    });
+  socket.on("chat", ({ message, sender }) => {
+    if (sender !== username) {
+      showMessage(`${sender}: ${message}`, "other");
+    }
+  });
 
+  socket.on("offer", async ({ offer }) => {
+    log("Received offer:", offer);
+    await startLocalStream();
+    createPeerConnection();
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+    const answer = await peerConnection.createAnswer();
+    await peerConnection.setLocalDescription(answer);
+    log("Sending answer:", answer);
+    socket.emit("answer", { answer, roomId });
+  });
+
+  socket.on("answer", async ({ answer }) => {
+    log("Received answer:", answer);
+    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+
+    // Apply queued ICE candidates now
     iceCandidatesQueue.forEach(candidate => {
-      log("Adding queued ICE candidate:", candidate);
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e =>
+        log("Error adding queued ICE candidate:", e)
+      );
     });
     iceCandidatesQueue = [];
-  }).catch(err => {
-    log("Error getting stream for answer:", err);
   });
-});
 
-socket.on('answer', (answer) => {
-  log("Received answer:", answer);
-  peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
-    .then(() => log("Set remote description from answer"))
-    .catch(err => log("Failed to set remote desc:", err));
-});
+  socket.on("ice-candidate", (candidate) => {
+    log("Received ICE candidate:", candidate);
+    if (peerConnection && peerConnection.remoteDescription?.type) {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e =>
+        log("Error adding ICE candidate:", e)
+      );
+    } else {
+      iceCandidatesQueue.push(candidate);
+      log("ICE candidate queued");
+    }
+  });
 
-socket.on('ice-candidate', (candidate) => {
-  log("Received ICE candidate:", candidate);
-  const rtcCandidate = new RTCIceCandidate(candidate);
+  async function startLocalStream() {
+    try {
+      localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      localVideo.srcObject = localStream;
+      log("Local stream started");
+    } catch (e) {
+      log("Error getting local media:", e);
+    }
+  }
 
-  if (peerConnection && peerConnection.remoteDescription?.type) {
-    peerConnection.addIceCandidate(rtcCandidate)
-      .then(() => log("Added ICE candidate"))
-      .catch(err => log("Failed to add ICE candidate:", err));
-  } else {
-    log("Queueing ICE candidate (remote not ready)");
-    iceCandidatesQueue.push(candidate);
+  function createPeerConnection() {
+    peerConnection = new RTCPeerConnection(servers);
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        log("Sending ICE candidate:", event.candidate);
+        socket.emit("ice-candidate", { candidate: event.candidate, roomId });
+      }
+    };
+
+    peerConnection.ontrack = (event) => {
+      log("Received remote track");
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    peerConnection.onconnectionstatechange = () => {
+      log("Peer connection state:", peerConnection.connectionState);
+    };
+
+    if (localStream) {
+      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+      log("Tracks added to peer connection");
+    }
   }
 });
