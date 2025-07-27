@@ -7,7 +7,6 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve all static files (index.html, style.css, client.js) from root folder
 app.use(express.static(__dirname));
 
 app.get('/', (req, res) => {
@@ -29,6 +28,18 @@ io.on('connection', (socket) => {
 
     socket.on('send-message', (message) => {
       io.to(roomId).emit('receive-message', { message, username });
+    });
+
+    socket.on('incoming-call', () => {
+      socket.to(currentRoom).emit('incoming-call');
+    });
+
+    socket.on('call-accepted', () => {
+      socket.to(currentRoom).emit('call-accepted');
+    });
+
+    socket.on('call-rejected', () => {
+      socket.to(currentRoom).emit('call-rejected');
     });
 
     socket.on('offer', (data) => {
