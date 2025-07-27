@@ -23,6 +23,7 @@ h1 {
   width: 100%;
   margin: 10px 0;
   padding: 10px;
+  font-size: 1rem;
 }
 
 .chat-section {
@@ -42,6 +43,7 @@ h1 {
 
 .message {
   margin: 5px 0;
+  word-wrap: break-word;
 }
 
 .message.sender {
@@ -61,6 +63,14 @@ form {
 
 form input {
   flex: 1;
+  font-size: 1rem;
+  padding: 8px;
+}
+
+form button {
+  font-size: 1rem;
+  padding: 8px 12px;
+  cursor: pointer;
 }
 
 .video-area {
@@ -93,5 +103,9 @@ video {
 
   form {
     flex-direction: column;
+  }
+
+  form button {
+    width: 100%;
   }
 }
