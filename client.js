@@ -40,6 +40,7 @@ function appendMessage(message, type) {
 function startCall() {
   isCaller = true;
   socket.emit('incoming-call');
+   startWebRTC();
   console.log('[startCall] Sent incoming call request');
 }
 
