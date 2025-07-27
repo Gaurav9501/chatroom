@@ -1,65 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chat Room</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>ChatRoom</title>
+  <link rel="stylesheet" href="style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-
 <body>
   <div class="container">
-    <h1 class="logo">Chat Room</h1>
-    <form class="form" id="form">
-      <input class="input" type="text" placeholder="Name" id="myname" required />
-      <input class="input" type="text" placeholder="Room Code" id="room" required />
-      <input class="input" type="text" placeholder="Message" id="message" required />
-      <button class="button" type="submit">Send Message</button>
+    <h1 class="logo">ChatRoom</h1>
+    <form id="joinForm" class="form">
+      <input class="input" type="text" placeholder="Enter your name" id="username" required />
+      <input class="input" type="text" placeholder="Enter room code" id="room" required />
+      <button class="button" type="submit">Join Room</button>
     </form>
-    <div class="messageArea" id="messageArea"></div>
+
+    <div id="chatBox" class="hidden">
+      <div id="messageArea" class="messageArea"></div>
+      <form id="chatForm" class="form chat-form">
+        <input class="input" type="text" placeholder="Type your message" id="message" required />
+        <button class="button">Send</button>
+      </form>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    let socket = io();
-    let form = document.getElementById('form');
-    let myname = document.getElementById('myname');
-    let room = document.getElementById('room');
-    let message = document.getElementById('message');
-    let messageArea = document.getElementById('messageArea');
+    const socket = io();
+    const joinForm = document.getElementById('joinForm');
+    const chatForm = document.getElementById('chatForm');
+    const chatBox = document.getElementById('chatBox');
+    const messageArea = document.getElementById('messageArea');
 
     let username = '';
-    let roomname = '';
+    let room = '';
 
-    form.addEventListener('submit', (e) => {
+    joinForm.addEventListener('submit', (e) => {
       e.preventDefault();
+      username = document.getElementById('username').value.trim();
+      room = document.getElementById('room').value.trim();
 
-      if (!username || !roomname) {
-        username = myname.value;
-        roomname = room.value;
-        socket.emit('join-room', roomname);
-      }
-
-      if (message.value) {
-        socket.emit('chat-message', {
-          user: username,
-          text: message.value,
-          room: roomname,
-        });
-        message.value = '';
+      if (username && room) {
+        socket.emit('join room', { username, room });
+        joinForm.classList.add('hidden');
+        chatBox.classList.remove('hidden');
       }
     });
 
-    socket.on('chat-message', (data) => {
-      let chat = document.createElement('div');
-      chat.classList.add('message');
-      chat.classList.add(data.user === username ? 'sent' : 'received');
-      chat.innerHTML = `<span class="username">${data.user}:</span> ${data.text}`;
-      messageArea.appendChild(chat);
+    chatForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const msgInput = document.getElementById('message');
+      const message = msgInput.value.trim();
+      if (message) {
+        appendMessage({ username, message, isSender: true });
+        socket.emit('chat message', message);
+        msgInput.value = '';
+      }
+    });
+
+    socket.on('chat message', (data) => {
+      if (data.username !== username) {
+        appendMessage({ username: data.username, message: data.message, isSender: false });
+      }
+    });
+
+    socket.on('system message', (msg) => {
+      appendSystemMessage(msg);
+    });
+
+    function appendMessage({ username, message, isSender }) {
+      const msg = document.createElement('div');
+      msg.className = `message ${isSender ? 'sender' : 'receiver'}`;
+      msg.innerHTML = `<span class="username">${username}:</span> ${message}`;
+      messageArea.appendChild(msg);
       messageArea.scrollTop = messageArea.scrollHeight;
-    });
+    }
+
+    function appendSystemMessage(msg) {
+      const msgEl = document.createElement('div');
+      msgEl.className = 'message system';
+      msgEl.textContent = msg;
+      messageArea.appendChild(msgEl);
+      messageArea.scrollTop = messageArea.scrollHeight;
+    }
   </script>
 </body>
-
 </html>
