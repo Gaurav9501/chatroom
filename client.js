@@ -41,6 +41,10 @@ socket.on('user-joined', (user) => {
   appendMessage(`${user} joined the chat.`, false);
 });
 
+socket.on('user-left', (user) => {
+  appendMessage(`${user} left the chat.`, false);
+});
+
 function appendMessage(msg, isSender) {
   const div = document.createElement('div');
   div.className = `message ${isSender ? 'sender' : 'receiver'}`;
@@ -79,9 +83,7 @@ function startCall() {
 
       // Create and send offer
       peerConnection.createOffer()
-        .then(offer => {
-          return peerConnection.setLocalDescription(offer);
-        })
+        .then(offer => peerConnection.setLocalDescription(offer))
         .then(() => {
           socket.emit('offer', peerConnection.localDescription);
         })
@@ -134,4 +136,8 @@ socket.on('ice-candidate', (candidate) => {
   if (peerConnection) {
     peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(console.error);
   }
+});
+
+socket.on('room-full', () => {
+  alert('Room is full. Cannot join.');
 });
