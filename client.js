@@ -66,7 +66,7 @@ window.onload = () => {
     isAudioCall = !videoEnabled;
     callAccepted = false;
     isCaller = true;
-
+    startWebRTC();
     socket.emit('incoming-call');
     log('Sent incoming call request');
   }
