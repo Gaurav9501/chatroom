@@ -1,250 +1,178 @@
-document.addEventListener("DOMContentLoaded", () => {
-  const socket = io();
+// client.js
 
-  let username, roomId;
-  let localStream, peerConnection;
-  let iceCandidatesQueue = [];
-  let isCallStarted = false;
+const socket = io();
+let username, roomId;
+let localStream, remoteStream, peerConnection;
+let isAudioCall = false;
 
-  const servers = {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      {
-        urls: "turn:openrelay.metered.ca:80",
-        username: "openrelayproject",
-        credential: "openrelayproject"
-      }
-    ]
-  };
+const messageForm = document.getElementById('messageForm');
+const messageInput = document.getElementById('messageInput');
+const messageArea = document.getElementById('messageArea');
 
-  // DOM elements
-  const joinBtn = document.getElementById("joinBtn");
-  const startAudioCallBtn = document.getElementById("startAudioCallBtn");
-  const startVideoCallBtn = document.getElementById("startVideoCallBtn");
-  const dropCallBtn = document.getElementById("dropCallBtn");
-  const sendBtn = document.getElementById("sendBtn");
-  const messageInput = document.getElementById("messageInput");
-  const messageArea = document.getElementById("messageArea");
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
 
-  const localVideo = document.getElementById("localVideo");
-  const remoteVideo = document.getElementById("remoteVideo");
-  const localAudio = document.getElementById("localAudio");
-  const remoteAudio = document.getElementById("remoteAudio");
+function joinRoom() {
+  username = document.getElementById('username').value;
+  roomId = document.getElementById('room').value;
 
-  function log(...args) {
-    console.log("[Client]", ...args);
+  if (!username || !roomId) return alert("Enter name and room!");
+
+  socket.emit('join-room', roomId, username);
+  document.getElementById('chatSection').classList.remove('hidden');
+  log(`Joined room: ${roomId} as ${username}`);
+}
+
+socket.on('user-joined', (user) => {
+  appendMessage(`${user} joined the chat.`, false);
+});
+
+socket.on('user-left', (user) => {
+  appendMessage(`${user} left the chat.`, false);
+});
+
+messageForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (messageInput.value) {
+    socket.emit('send-message', messageInput.value);
+    appendMessage(`You: ${messageInput.value}`, true);
+    messageInput.value = '';
   }
+});
 
-  function showMessage(message, sender = "you") {
-    const div = document.createElement("div");
-    if (sender === "info") {
-      div.className = "info";
-      div.textContent = message;
-    } else {
-      div.className = `message ${sender}`;
-      div.textContent = message;
-    }
-    messageArea.appendChild(div);
-    messageArea.scrollTop = messageArea.scrollHeight;
-  }
+socket.on('receive-message', ({ message, username: from }) => {
+  appendMessage(`${from}: ${message}`, false);
+});
 
-  joinBtn.addEventListener("click", () => {
-    username = document.getElementById("username").value.trim();
-    roomId = document.getElementById("room").value.trim();
+function appendMessage(msg, isSender) {
+  const div = document.createElement('div');
+  div.className = `message ${isSender ? 'sender' : 'receiver'}`;
+  div.textContent = msg;
+  messageArea.appendChild(div);
+  messageArea.scrollTop = messageArea.scrollHeight;
+}
 
-    if (!username || !roomId) {
-      alert("Username and Room ID are required");
-      return;
-    }
+const servers = {
+  iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+};
 
-    socket.emit("join", { username, roomId });
-    log("Joined room:", roomId);
+function startCall(videoEnabled = true) {
+  isAudioCall = !videoEnabled;
+  navigator.mediaDevices.getUserMedia({ video: videoEnabled, audio: true }).then(stream => {
+    localStream = stream;
+    localVideo.srcObject = stream;
 
-    showMessage(`${username} joined the room`, "info");
-
-    // Enable call buttons and send message button after joining
-    startAudioCallBtn.disabled = false;
-    startVideoCallBtn.disabled = false;
-    sendBtn.disabled = false;
-  });
-
-  sendBtn.addEventListener("click", () => {
-    const message = messageInput.value.trim();
-    if (message) {
-      socket.emit("chat", { roomId, message, sender: username });
-      showMessage(message, "you");
-      messageInput.value = "";
-    }
-  });
-
-  socket.on("chat", ({ message, sender }) => {
-    if (sender !== username) {
-      showMessage(`${sender}: ${message}`, "other");
-    }
-  });
-
-  socket.on("user-joined", (user) => {
-    if (user !== username) {
-      showMessage(`${user} joined the room`, "info");
-    }
-  });
-
-  socket.on("user-left", (user) => {
-    showMessage(`${user} left the room`, "info");
-  });
-
-  socket.on("offer", async ({ offer }) => {
-    log("Received offer:", offer);
-    if (!localStream) {
-      await startLocalStream(currentCallType);
-    }
-    createPeerConnection();
-
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-
-    const answer = await peerConnection.createAnswer();
-    await peerConnection.setLocalDescription(answer);
-
-    log("Sending answer:", answer);
-    socket.emit("answer", { answer, roomId });
-  });
-
-  socket.on("answer", async ({ answer }) => {
-    log("Received answer:", answer);
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-
-    iceCandidatesQueue.forEach(candidate => {
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {
-        log("Error adding queued ICE candidate:", e);
-      });
-    });
-    iceCandidatesQueue = [];
-  });
-
-  socket.on("ice-candidate", (candidate) => {
-    log("Received ICE candidate:", candidate);
-    if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-      peerConnection.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => {
-        log("Error adding ICE candidate:", e);
-      });
-    } else {
-      iceCandidatesQueue.push(candidate);
-      log("Remote description not ready, ICE candidate queued");
-    }
-  });
-
-  // --- Call buttons logic ---
-
-  let currentCallType = null; // "audio" or "video"
-
-  startAudioCallBtn.addEventListener("click", async () => {
-    currentCallType = "audio";
-    await startLocalStream("audio");
-    startCall();
-    toggleCallButtons(true);
-  });
-
-  startVideoCallBtn.addEventListener("click", async () => {
-    currentCallType = "video";
-    await startLocalStream("video");
-    startCall();
-    toggleCallButtons(true);
-  });
-
-  dropCallBtn.addEventListener("click", dropCall);
-
-  async function startLocalStream(type) {
-    try {
-      if (localStream) {
-        // stop old tracks
-        localStream.getTracks().forEach(track => track.stop());
-      }
-      let constraints;
-      if (type === "audio") {
-        constraints = { audio: true, video: false };
-      } else if (type === "video") {
-        constraints = { audio: true, video: true };
-      } else {
-        constraints = { audio: true, video: false };
-      }
-      localStream = await navigator.mediaDevices.getUserMedia(constraints);
-
-      if (type === "audio") {
-        localAudio.srcObject = localStream;
-        localAudio.style.display = "inline-block";
-        localVideo.style.display = "none";
-      } else {
-        localVideo.srcObject = localStream;
-        localVideo.style.display = "inline-block";
-        localAudio.style.display = "none";
-      }
-
-      log("Local stream started", type);
-    } catch (e) {
-      log("Error accessing media devices", e);
-      alert("Could not access microphone/camera.");
-    }
-  }
-
-  function createPeerConnection() {
-    if (peerConnection) {
-      peerConnection.close();
-      peerConnection = null;
-    }
     peerConnection = new RTCPeerConnection(servers);
+
+    stream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, stream);
+    });
 
     peerConnection.onicecandidate = (event) => {
       if (event.candidate) {
-        log("Sending ICE candidate:", event.candidate);
-        socket.emit("ice-candidate", { candidate: event.candidate, roomId });
+        socket.emit('ice-candidate', event.candidate);
+        log('Sent ICE candidate');
       }
     };
 
     peerConnection.ontrack = (event) => {
-      log("Received remote track");
-
-      // Detect video or audio track
-      const track = event.track;
-      if (track.kind === "video") {
-        remoteVideo.srcObject = event.streams[0];
-        remoteVideo.style.display = "inline-block";
-        remoteAudio.style.display = "none";
-      } else if (track.kind === "audio") {
-        remoteAudio.srcObject = event.streams[0];
-        remoteAudio.style.display = "inline-block";
-        remoteVideo.style.display = "none";
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteVideo.srcObject = remoteStream;
       }
+      remoteStream.addTrack(event.track);
+      log('Received remote track');
     };
 
     peerConnection.onconnectionstatechange = () => {
-      log("Peer connection state:", peerConnection.connectionState);
-      if (peerConnection.connectionState === "disconnected" || peerConnection.connectionState === "failed" || peerConnection.connectionState === "closed") {
-        dropCall();
+      log(`[Client] Peer connection state: ${peerConnection.connectionState}`);
+    };
+
+    peerConnection.createOffer().then(offer => {
+      peerConnection.setLocalDescription(offer);
+      socket.emit('offer', offer);
+      log('Sent offer');
+    });
+  }).catch(error => {
+    log(`Error accessing media devices: ${error.message}`);
+  });
+}
+
+socket.on('offer', (offer) => {
+  navigator.mediaDevices.getUserMedia({ video: !isAudioCall, audio: true }).then(stream => {
+    localStream = stream;
+    localVideo.srcObject = stream;
+
+    peerConnection = new RTCPeerConnection(servers);
+
+    stream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, stream);
+    });
+
+    peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+      log('Received offer and set remote description');
+      return peerConnection.createAnswer();
+    }).then(answer => {
+      peerConnection.setLocalDescription(answer);
+      socket.emit('answer', answer);
+      log('Sent answer');
+    });
+
+    peerConnection.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit('ice-candidate', event.candidate);
+        log('Sent ICE candidate');
       }
     };
 
-    if (localStream) {
-      localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
-      log("Tracks added to peer connection");
-    }
-  }
+    peerConnection.ontrack = (event) => {
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteVideo.srcObject = remoteStream;
+      }
+      remoteStream.addTrack(event.track);
+      log('Received remote track');
+    };
 
-  async function startCall() {
-    createPeerConnection();
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    log("Sending offer:", offer);
-    socket.emit("offer", { offer, roomId });
-  }
+    peerConnection.onconnectionstatechange = () => {
+      log(`[Client] Peer connection state: ${peerConnection.connectionState}`);
+    };
+  }).catch(error => {
+    log(`Error accessing media devices: ${error.message}`);
+  });
+});
 
-  function dropCall() {
-    log("Dropping the call...");
+socket.on('answer', (answer) => {
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  log('Received answer');
+});
 
-    if (peerConnection) {
-      peerConnection.close();
-      peerConnection = null;
-    }
+socket.on('ice-candidate', (candidate) => {
+  peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  log('Received ICE candidate');
+});
+
+function dropCall() {
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+    log("Call ended");
 
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
-      localStream
+      localStream = null;
+    }
+
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => track.stop());
+      remoteStream = null;
+    }
+
+    localVideo.srcObject = null;
+    remoteVideo.srcObject = null;
+  }
+}
+
+function log(msg) {
+  console.log(`[LOG] ${msg}`);
+}
