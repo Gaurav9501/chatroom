@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>WebRTC Video Chat</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Chat Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
       font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
+      margin: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      background-color: #f2f2f2;
+      background-color: #f9f9f9;
     }
 
     h2 {
@@ -32,24 +31,9 @@
       font-size: 16px;
     }
 
-    .video-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-
-    video {
-      width: 45%;
-      max-width: 400px;
-      background: #000;
-      border: 1px solid #ccc;
-    }
-
     #messageArea {
       width: 100%;
-      max-width: 800px;
+      max-width: 600px;
       height: 200px;
       overflow-y: auto;
       background: #fff;
@@ -79,8 +63,25 @@
       text-align: left;
     }
 
+    .audio-container {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 20px;
+      justify-content: center;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    audio {
+      width: 45%;
+      outline: none;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background: #000;
+    }
+
     @media (max-width: 768px) {
-      video {
+      audio {
         width: 100%;
       }
     }
@@ -88,7 +89,7 @@
 </head>
 <body>
 
-  <h2>WebRTC Video Chat</h2>
+  <h2>Audio Chat Room</h2>
 
   <div class="controls">
     <input id="username" placeholder="Your Name" />
@@ -99,9 +100,9 @@
     <button id="sendBtn">Send Message</button>
   </div>
 
-  <div class="video-container">
-    <video id="localVideo" autoplay muted playsinline></video>
-    <video id="remoteVideo" autoplay playsinline></video>
+  <div class="audio-container">
+    <audio id="localAudio" autoplay muted></audio>
+    <audio id="remoteAudio" autoplay></audio>
   </div>
 
   <div id="messageArea"></div>
