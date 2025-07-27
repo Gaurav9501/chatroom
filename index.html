@@ -1,36 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chat Room with WebRTC</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>WebRTC Video Chat</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+      justify-content: center;
+    }
+
+    input, button {
+      padding: 8px 12px;
+      font-size: 16px;
+    }
+
+    video {
+      width: 45%;
+      max-width: 400px;
+      margin: 10px;
+      background: #000;
+      border: 1px solid #ccc;
+    }
+
+    .video-container {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    @media (max-width: 768px) {
+      video {
+        width: 100%;
+      }
+    }
+  </style>
 </head>
 <body>
-  <div class="container">
-    <h1>Chat Room</h1>
-    <div class="form-area">
-      <input type="text" id="username" placeholder="Your Name" />
-      <input type="text" id="room" placeholder="Room Code" />
-      <button onclick="joinRoom()">Join Room</button>
-    </div>
 
-    <div class="chat-section hidden" id="chatSection">
-      <div class="video-area">
-        <video id="localVideo" autoplay muted playsinline></video>
-        <video id="remoteVideo" autoplay playsinline></video>
-      </div>
+  <h2>WebRTC Video Chat</h2>
 
-      <div class="messages" id="messageArea"></div>
-
-      <form id="messageForm">
-        <input type="text" id="messageInput" placeholder="Message..." autocomplete="off" />
-        <button>Send</button>
-        <button type="button" onclick="startCall()">📞 Call</button>
-      </form>
-    </div>
+  <div class="controls">
+    <input id="username" placeholder="Your Name" />
+    <input id="room" placeholder="Room ID" />
+    <button id="joinBtn">Join Room</button>
+    <button id="callBtn">Start Call</button>
+    <input id="messageInput" placeholder="Type a message" />
+    <button id="sendBtn">Send Message</button>
   </div>
 
+  <div class="video-container">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
+  </div>
+
+  <!-- Socket.io & Client Script -->
   <script src="/socket.io/socket.io.js"></script>
   <script src="client.js"></script>
 </body>
