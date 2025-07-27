@@ -1,57 +1,39 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Chat Room</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1 class="logo">Chat Room</h1>
-        <form class="form" id="form">
-            <input class="input" type="text" placeholder="Name" id="myname" required>
-            <input class="input" type="text" placeholder="Room Code" id="roomcode" required>
-            <input class="input" type="text" placeholder="Message" id="message" required>
-            <button class="button">Send Message</button>
-        </form>
-        <div class="messageArea" id="messageArea"></div>
-    </div>
+<script>
+    let socket = io();
+    let form = document.getElementById('form');
+    let myname = document.getElementById('myname');
+    let room = document.getElementById('room');
+    let message = document.getElementById('message');
+    let messageArea = document.getElementById('messageArea');
 
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        let socket = io();
-        let form = document.getElementById('form');
-        let myname = document.getElementById('myname');
-        let roomcode = document.getElementById('roomcode');
-        let message = document.getElementById('message');
-        let messageArea = document.getElementById('messageArea');
-        let hasJoinedRoom = false;
+    let username = '';
+    let roomname = '';
 
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
 
-            if (!hasJoinedRoom && roomcode.value) {
-                socket.emit('join room', roomcode.value);
-                hasJoinedRoom = true;
-            }
+        if (!username || !roomname) {
+            username = myname.value;
+            roomname = room.value;
+            socket.emit('join-room', roomname);
+        }
 
-            if (message.value && myname.value && roomcode.value) {
-                socket.emit('chat message', {
-                    name: myname.value,
-                    room: roomcode.value,
-                    message: message.value
-                });
-                message.value = '';
-            }
-        });
+        if (message.value) {
+            socket.emit('chat-message', {
+                user: username,
+                text: message.value,
+                room: roomname
+            });
+            message.value = '';
+        }
+    });
 
-        socket.on('chat message', (data) => {
-            let chatContent = document.createElement('p');
-            chatContent.classList.add('message');
-            chatContent.innerHTML = `<span class="username">${data.name}:</span> ${data.message}`;
-            messageArea.appendChild(chatContent);
-            messageArea.scrollTop = messageArea.scrollHeight;
-        });
-    </script>
-</body>
-</html>
+    socket.on('chat-message', (data) => {
+        let chat = document.createElement('div');
+        chat.classList.add('message');
+        chat.classList.add(data.user === username ? 'sent' : 'received');
+        chat.innerHTML = `<span class="username">${data.user}:</span> ${data.text}`;
+        messageArea.appendChild(chat);
+        messageArea.scrollTop = messageArea.scrollHeight;
+    });
+</script>
