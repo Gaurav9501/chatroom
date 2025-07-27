@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Audio Chat Room</title>
+  <title>Audio & Video Chat Room</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
@@ -63,44 +63,62 @@
       text-align: left;
     }
 
-    .audio-container {
+    .info {
+      color: #666;
+      font-style: italic;
+      text-align: center;
+      margin: 5px 0;
+    }
+
+    .media-container {
       display: flex;
       gap: 20px;
       margin-bottom: 20px;
       justify-content: center;
       width: 100%;
       max-width: 600px;
+      flex-wrap: wrap;
     }
 
-    audio {
+    video, audio {
       width: 45%;
+      max-width: 300px;
       outline: none;
       border-radius: 5px;
       border: 1px solid #ccc;
       background: #000;
     }
 
+    audio {
+      width: 45%;
+      max-width: 300px;
+    }
+
     @media (max-width: 768px) {
-      audio {
+      video, audio {
         width: 100%;
+        max-width: none;
       }
     }
   </style>
 </head>
 <body>
 
-  <h2>Audio Chat Room</h2>
+  <h2>Audio & Video Chat Room</h2>
 
   <div class="controls">
     <input id="username" placeholder="Your Name" />
     <input id="room" placeholder="Room ID" />
     <button id="joinBtn">Join Room</button>
-    <button id="callBtn">Start Call</button>
+    <button id="startAudioCallBtn" disabled>Start Audio Call</button>
+    <button id="startVideoCallBtn" disabled>Start Video Call</button>
     <input id="messageInput" placeholder="Type a message" />
-    <button id="sendBtn">Send Message</button>
+    <button id="sendBtn" disabled>Send Message</button>
   </div>
 
-  <div class="audio-container">
+  <div class="media-container">
+    <video id="localVideo" autoplay muted playsinline></video>
+    <video id="remoteVideo" autoplay playsinline></video>
     <audio id="localAudio" autoplay muted></audio>
     <audio id="remoteAudio" autoplay></audio>
   </div>
