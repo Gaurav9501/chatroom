@@ -1,7 +1,6 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
-
 const app = express();
 const server = http.createServer(app);
 const io = require('socket.io')(server);
@@ -9,13 +8,14 @@ const io = require('socket.io')(server);
 // Serve static files
 app.use(express.static(__dirname));
 
-// Serve HTML
+// Serve index.html
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// Handle socket connections
 io.on('connection', (socket) => {
-    console.log('User connected');
+    console.log('A user connected');
 
     socket.on('join room', (room) => {
         socket.join(room);
@@ -27,11 +27,11 @@ io.on('connection', (socket) => {
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected');
+        console.log('A user disconnected');
     });
 });
 
-const port = 5000;
-server.listen(port, () => {
-    console.log(`Server is listening on http://localhost:${port}`);
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
 });
