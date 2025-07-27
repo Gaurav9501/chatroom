@@ -7,25 +7,41 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files
-app.use(express.static(__dirname));
+app.use(express.static(__dirname)); // serve static files (html, css, images)
 
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// Socket.IO room-based messaging
 io.on('connection', (socket) => {
-  socket.on('join-room', (room) => {
+  socket.on('join room', ({ username, room }) => {
     socket.join(room);
+    socket.username = username;
+    socket.room = room;
+
+    socket.to(room).emit('system message', `${username} joined the room.`);
   });
 
-  socket.on('chat-message', (data) => {
-    io.to(data.room).emit('chat-message', data);
+  socket.on('chat message', (message) => {
+    const { username, room } = socket;
+    if (room) {
+      io.to(room).emit('chat message', {
+        username,
+        message,
+        isSender: false,
+        from: username,
+      });
+    }
+  });
+
+  socket.on('disconnect', () => {
+    if (socket.room && socket.username) {
+      socket.to(socket.room).emit('system message', `${socket.username} left the room.`);
+    }
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`Server is listening on http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
