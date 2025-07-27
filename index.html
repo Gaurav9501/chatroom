@@ -1,77 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WebRTC Audio Call with Debug</title>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>WebRTC Audio Call</title>
   <style>
-    /* Add any quick styles for audio containers */
-    #localAudioContainer, #remoteAudioContainer {
-      position: relative;
-      display: inline-block;
-      margin-right: 10px;
-    }
-
-    #localAudioStatus, #remoteAudioStatus {
-      position: absolute;
-      top: 0;
-      right: 0;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: red;
-      border: 1px solid #333;
-      z-index: 10;
-    }
-
-    audio {
-      width: 250px;
-      height: 40px;
-      outline: none;
-      background: #222;
-      border-radius: 5px;
-    }
+    body { font-family: sans-serif; text-align: center; margin: 20px; }
+    .audio-status { font-size: 24px; margin: 10px; }
+    .green-dot { color: green; }
+    .red-dot { color: red; }
   </style>
 </head>
 <body>
+  <h1>WebRTC Audio Call</h1>
 
-<h1>WebRTC Audio Call with Debug Indicators</h1>
-
-<div id="joinSection">
-  <input type="text" id="username" placeholder="Your Name" />
-  <input type="text" id="room" placeholder="Room Code" />
+  <input type="text" id="username" placeholder="Enter your name">
+  <input type="text" id="roomId" placeholder="Enter Room ID">
   <button onclick="joinRoom()">Join Room</button>
-</div>
+  <br><br>
 
-<div id="chatSection" style="display:none; margin-top: 20px;">
-  
-  <div>
-    <div id="localAudioContainer">
-      <audio id="localAudio" autoplay muted></audio>
-      <div id="localAudioStatus"></div>
-    </div>
+  <button onclick="startCall()">📞 Call</button>
 
-    <div id="remoteAudioContainer">
-      <audio id="remoteAudio" autoplay></audio>
-      <div id="remoteAudioStatus"></div>
-    </div>
-  </div>
+  <h3>Audio Stream Status</h3>
+  <div class="audio-status">🎤 Local: <span id="localAudioStatus">🔴</span></div>
+  <div class="audio-status">🔈 Remote: <span id="remoteAudioStatus">🔴</span></div>
 
-  <div id="messageArea" style="height: 150px; overflow-y: auto; border: 1px solid #ccc; background: #fff; padding: 10px; margin: 10px 0;"></div>
+  <audio id="localAudio" autoplay muted></audio>
+  <audio id="remoteAudio" autoplay></audio>
 
-  <form id="messageForm">
-    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" required />
-    <button type="submit">Send</button>
-  </form>
-
-  <button type="button" onclick="startCall()">🎧 Start Audio Call</button>
-  <button type="button" onclick="dropCall()">❌ Drop Call</button>
-
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
-
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
