@@ -1,37 +1,37 @@
-<!-- index.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Chat Room with Call</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Chat Room</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="joinScreen">
-    <h2>Join a Chat Room</h2>
-    <input type="text" id="username" placeholder="Enter your name" />
-    <input type="text" id="room" placeholder="Enter room code" />
-    <button onclick="joinRoom()">Join</button>
-  </div>
-
-  <div id="chatScreen" class="hidden">
-    <h2>Room: <span id="roomName"></span></h2>
-    <div id="chatBox"></div>
-    <form id="chatForm">
-      <input id="message" autocomplete="off" placeholder="Type a message" />
-      <button>Send</button>
-    </form>
-
-    <div class="video-controls">
-      <button id="callBtn" class="button">Start Call</button>
-      <button id="endCallBtn" class="button hidden">End Call</button>
+  <div class="container">
+    <h1>Chat Room</h1>
+    <div class="form-area">
+      <input type="text" id="username" placeholder="Your Name" />
+      <input type="text" id="room" placeholder="Room Code" />
+      <button onclick="joinRoom()">Join Room</button>
     </div>
-    <video id="localVideo" autoplay muted playsinline></video>
-    <video id="remoteVideo" autoplay playsinline></video>
+
+    <div class="chat-section hidden" id="chatSection">
+      <div class="video-area">
+        <video id="localVideo" autoplay muted playsinline></video>
+        <video id="remoteVideo" autoplay playsinline></video>
+      </div>
+
+      <div class="messages" id="messageArea"></div>
+
+      <form id="messageForm">
+        <input type="text" id="messageInput" placeholder="Message..." autocomplete="off" />
+        <button>Send</button>
+        <button type="button" onclick="startCall()">📞 Call</button>
+      </form>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script src="script.js"></script>
+  <script src="client.js"></script>
 </body>
 </html>
