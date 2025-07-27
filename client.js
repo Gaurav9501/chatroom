@@ -110,4 +110,26 @@ socket.on('offer', (offer) => {
       socket.emit('answer', peerConnection.localDescription);
     });
 
-    // Flush any ICE candidates recei
+    iceCandidatesQueue.forEach(candidate => {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+    iceCandidatesQueue = [];
+  });
+});
+
+socket.on('answer', (answer) => {
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+});
+
+socket.on('ice-candidate', (candidate) => {
+  const rtcCandidate = new RTCIceCandidate(candidate);
+  if (peerConnection && peerConnection.remoteDescription?.type) {
+    peerConnection.addIceCandidate(rtcCandidate);
+  } else {
+    iceCandidatesQueue.push(candidate);
+  }
+});
+
+socket.on('room-full', () => {
+  alert('Room is full. Cannot join.');
+});
