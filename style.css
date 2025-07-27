@@ -1,28 +1,26 @@
 body {
-  background-image: url('test.jpeg');
+  background: url('test.jpeg') no-repeat center center fixed;
   background-size: cover;
-  background-position: center;
   margin: 0;
   padding: 0;
   font-family: Arial, sans-serif;
 }
 
 .container {
-  max-width: 500px;
-  width: 90%;
-  margin: 50px auto;
+  max-width: 450px;
+  margin: auto;
+  margin-top: 40px;
   padding: 20px;
-  background-color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.9);
   border-radius: 10px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
 }
 
 .logo {
   text-align: center;
+  color: #008000;
   font-size: 24px;
-  font-weight: bold;
   margin-bottom: 20px;
-  color: #d63384;
 }
 
 .form {
@@ -32,72 +30,88 @@ body {
 }
 
 .input {
+  padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
-  padding: 10px;
-  font-size: 16px;
-  width: 100%;
 }
 
 .button {
-  background-color: #d63384;
+  background-color: #008000;
   color: white;
   border: none;
   border-radius: 5px;
-  padding: 12px;
-  font-size: 16px;
+  padding: 10px;
   cursor: pointer;
 }
 
 .button:hover {
-  background-color: #b0256c;
+  background-color: #006400;
+}
+
+.hidden {
+  display: none;
 }
 
 .messageArea {
   margin-top: 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  padding: 10px;
-  height: 300px;
+  max-height: 300px;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 5px;
+  background: #f5f5f5;
 }
 
 .message {
-  padding: 10px;
-  border-radius: 12px;
+  margin: 8px 0;
+  padding: 8px 10px;
+  border-radius: 10px;
   max-width: 70%;
   word-wrap: break-word;
 }
 
-.sent {
-  background-color: #dcf8c6;
-  margin-left: auto;
-  text-align: right;
+.sender {
+  background-color: #d4fcd4;
+  align-self: flex-start;
+  text-align: left;
 }
 
-.received {
-  background-color: #f1f0f0;
-  margin-right: auto;
-  text-align: left;
+.receiver {
+  background-color: #e0f0ff;
+  align-self: flex-end;
+  text-align: right;
+  margin-left: auto;
 }
 
 .username {
   font-weight: bold;
+  color: #006400;
   display: block;
-  color: #333;
-  margin-bottom: 4px;
 }
 
-@media screen and (max-width: 600px) {
+.system {
+  text-align: center;
+  color: #999;
+  font-style: italic;
+}
+
+.chat-form {
+  margin-top: 10px;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
   .container {
-    margin: 20px auto;
+    margin: 20px;
     padding: 15px;
   }
 
-  .messageArea {
-    height: 250px;
+  .message {
+    font-size: 14px;
+  }
+
+  .input,
+  .button {
+    font-size: 14px;
   }
 }
