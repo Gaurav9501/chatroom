@@ -1,42 +1,38 @@
 body {
-  font-family: Arial, sans-serif;
-  max-width: 600px;
-  margin: auto;
+  font-family: sans-serif;
   padding: 20px;
-  background: #f0f0f0;
 }
 
 #chatSection {
   margin-top: 20px;
 }
 
-#messageArea {
-  height: 200px;
-  overflow-y: auto;
-  border: 1px solid #ccc;
-  background: #fff;
-  padding: 10px;
-  margin-bottom: 10px;
+.message {
+  margin: 5px 0;
 }
 
-.message.sender {
+.sender {
   text-align: right;
   color: blue;
 }
 
-.message.receiver {
+.receiver {
   text-align: left;
   color: green;
 }
 
-audio {
-  width: 48%;
-  max-height: 40px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  margin: 5px;
+.dot {
+  height: 10px;
+  width: 10px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 10px;
 }
 
-form > * {
-  margin: 5px 0;
+.red {
+  background-color: red;
+}
+
+.green {
+  background-color: green;
 }
