@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WebRTC Audio/Video Chat</title>
+  <title>WebRTC Audio Chat</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
 
-<h1>WebRTC Audio/Video Chat</h1>
+<h1>WebRTC Audio Chat</h1>
 
 <div id="joinSection">
   <input type="text" id="username" placeholder="Your Name" />
@@ -16,10 +16,11 @@
   <button onclick="joinRoom()">Join Room</button>
 </div>
 
-<div id="chatSection">
+<div id="chatSection" style="display:none;">
   <div>
-    <video id="localVideo" autoplay muted playsinline></video>
-    <video id="remoteVideo" autoplay playsinline></video>
+    <!-- For audio only, you can use <audio> or keep <video> muted and no video track -->
+    <audio id="localAudio" autoplay muted></audio>
+    <audio id="remoteAudio" autoplay></audio>
   </div>
 
   <div id="messageArea"></div>
@@ -29,8 +30,7 @@
     <button type="submit">Send</button>
   </form>
 
-  <button type="button" onclick="startCall(true)">📹 Start Video Call</button>
-  <button type="button" onclick="startCall(false)">🎧 Start Audio Call</button>
+  <button type="button" onclick="startCall()">🎧 Start Audio Call</button>
   <button type="button" onclick="dropCall()">❌ Drop Call</button>
 </div>
 
