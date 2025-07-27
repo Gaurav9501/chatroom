@@ -1,128 +1,162 @@
+// client.js
 const socket = io();
-
 let username, roomId;
 let localStream, remoteStream, peerConnection;
-let isAudioCall = false;
 
+const messageForm = document.getElementById('messageForm');
+const messageInput = document.getElementById('messageInput');
+const messageArea = document.getElementById('messageArea');
 const localAudio = document.getElementById('localAudio');
 const remoteAudio = document.getElementById('remoteAudio');
-
-function log(...args) {
-  console.log('[LOG]', ...args);
-}
-
-function monitorAudioStream(audioEl, statusElId) {
-  const statusEl = document.getElementById(statusElId);
-  const check = () => {
-    if (audioEl.srcObject && audioEl.srcObject.getAudioTracks().some(t => t.enabled)) {
-      statusEl.textContent = '🟢';
-    } else {
-      statusEl.textContent = '🔴';
-    }
-  };
-  setInterval(check, 1000);
-}
+const localStatus = document.getElementById('localStatus');
+const remoteStatus = document.getElementById('remoteStatus');
 
 function joinRoom() {
   username = document.getElementById('username').value;
-  roomId = document.getElementById('roomId').value;
-  if (!username || !roomId) return alert('Please enter both fields');
-  socket.emit('join', { username, roomId });
-  log(`[joinRoom] Joined room: ${roomId} as ${username}`);
+  roomId = document.getElementById('room').value;
+  socket.emit('join-room', roomId, username);
+  console.log(`[joinRoom] Joined room: ${roomId} as ${username}`);
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('chatSection').style.display = 'block';
+}
+
+messageForm.addEventListener('submit', e => {
+  e.preventDefault();
+  const msg = messageInput.value;
+  appendMessage(msg, 'sender');
+  socket.emit('send-message', msg);
+  messageInput.value = '';
+});
+
+function appendMessage(message, type) {
+  const div = document.createElement('div');
+  div.classList.add('message', type);
+  div.innerText = message;
+  messageArea.appendChild(div);
+  messageArea.scrollTop = messageArea.scrollHeight;
 }
 
 function startCall() {
-  if (!roomId) return alert('Join room first');
-  isAudioCall = true;
-  socket.emit('start-call', { roomId, from: username });
-  log('[startCall] Sent incoming call request');
+  socket.emit('incoming-call');
+  console.log('[startCall] Sent incoming call request');
 }
 
-socket.on('user-joined', ({ username: otherUser }) => {
-  log('[socket] User joined:', otherUser);
+function showIncomingCallPopup() {
+  console.log('[showIncomingCallPopup] Displayed incoming call popup');
+  const accept = confirm("Incoming call. Accept?");
+  if (accept) {
+    socket.emit('call-accepted');
+    console.log('[showIncomingCallPopup] Call accepted');
+    startWebRTC(true);
+  } else {
+    socket.emit('call-rejected');
+    console.log('[showIncomingCallPopup] Call rejected');
+  }
+}
+
+function updateDotStatus(dot, stream) {
+  const hasAudio = stream && stream.getAudioTracks().length > 0;
+  dot.classList.remove('green', 'red');
+  dot.classList.add(hasAudio ? 'green' : 'red');
+}
+
+function startWebRTC(isCaller) {
+  console.log('[startWebRTC] Starting WebRTC connection...');
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
+    localStream = stream;
+    updateDotStatus(localStatus, localStream);
+    localAudio.srcObject = localStream;
+    console.log('[startWebRTC] Media stream obtained');
+
+    peerConnection = new RTCPeerConnection();
+    console.log('[startWebRTC] RTCPeerConnection created');
+
+    localStream.getTracks().forEach(track => {
+      peerConnection.addTrack(track, localStream);
+      console.log('[startWebRTC] Added local track:', track.kind);
+    });
+
+    peerConnection.ontrack = event => {
+      if (!remoteStream) {
+        remoteStream = new MediaStream();
+        remoteAudio.srcObject = remoteStream;
+      }
+      event.streams[0].getTracks().forEach(track => {
+        remoteStream.addTrack(track);
+        console.log('[peerConnection] Added remote track:', track.kind);
+        updateDotStatus(remoteStatus, remoteStream);
+      });
+    };
+
+    peerConnection.onicecandidate = e => {
+      if (e.candidate) {
+        socket.emit('ice-candidate', e.candidate);
+        console.log('[peerConnection] Sent ICE candidate');
+      }
+    };
+
+    if (isCaller) {
+      peerConnection.createOffer().then(offer => {
+        peerConnection.setLocalDescription(offer);
+        socket.emit('offer', offer);
+        console.log('[call-accepted] Sent offer');
+      });
+    }
+  });
+}
+
+function dropCall() {
+  if (peerConnection) {
+    peerConnection.close();
+    peerConnection = null;
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(t => t.stop());
+  }
+  remoteStream = null;
+  localAudio.srcObject = null;
+  remoteAudio.srcObject = null;
+  updateDotStatus(localStatus, null);
+  updateDotStatus(remoteStatus, null);
+  console.log('[dropCall] Call ended');
+}
+
+socket.on('user-joined', user => {
+  console.log('[socket] User joined:', user);
 });
 
-socket.on('incoming-call', ({ from }) => {
-  log('[socket] Incoming call received from', from);
-  if (confirm(`${from} is calling you. Accept?`)) {
-    socket.emit('call-accepted', { roomId, from: username });
-    startWebRTC(true);
-    log('[incoming-call] Call accepted');
-  } else {
-    log('[incoming-call] Call rejected');
-  }
+socket.on('receive-message', ({ message, username }) => {
+  appendMessage(`${username}: ${message}`, 'receiver');
+});
+
+socket.on('incoming-call', () => {
+  console.log('[socket] Incoming call received');
+  showIncomingCallPopup();
 });
 
 socket.on('call-accepted', () => {
-  log('[socket] Call accepted by other user');
-  startWebRTC(false);
+  console.log('[socket] Call accepted by other user');
+  startWebRTC(true);
 });
 
-async function startWebRTC(isReceiver) {
-  log('[startWebRTC] Starting WebRTC connection...');
-  localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-  localAudio.srcObject = localStream;
-  monitorAudioStream(localAudio, 'localAudioStatus');
-  log('[startWebRTC] Media stream obtained');
-
-  peerConnection = new RTCPeerConnection();
-
-  localStream.getTracks().forEach(track => {
-    peerConnection.addTrack(track, localStream);
-    log(`[startWebRTC] Added local track: ${track.kind}`);
+socket.on('offer', offer => {
+  if (!peerConnection) startWebRTC(false);
+  peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
+    return peerConnection.createAnswer();
+  }).then(answer => {
+    return peerConnection.setLocalDescription(answer);
+  }).then(() => {
+    socket.emit('answer', peerConnection.localDescription);
+    console.log('[offer] Sent answer');
   });
-
-  peerConnection.ontrack = event => {
-    if (!remoteStream) {
-      remoteStream = new MediaStream();
-      remoteAudio.srcObject = remoteStream;
-      monitorAudioStream(remoteAudio, 'remoteAudioStatus');
-
-      remoteAudio.play().catch(e => {
-        console.warn('[peerConnection] Remote audio play error:', e);
-      });
-
-      log('[peerConnection] Created remote media stream');
-    }
-
-    remoteStream.addTrack(event.track);
-    log(`[peerConnection] Received remote track: ${event.track.kind}`);
-  };
-
-  peerConnection.onicecandidate = event => {
-    if (event.candidate) {
-      socket.emit('ice-candidate', { candidate: event.candidate, roomId });
-      log('[peerConnection] Sent ICE candidate');
-    }
-  };
-
-  if (!isReceiver) {
-    const offer = await peerConnection.createOffer();
-    await peerConnection.setLocalDescription(offer);
-    socket.emit('offer', { offer, roomId });
-    log('[startWebRTC] Sent offer');
-  }
-}
-
-socket.on('offer', async ({ offer }) => {
-  if (!peerConnection) return log('[offer] No peerConnection found');
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-  const answer = await peerConnection.createAnswer();
-  await peerConnection.setLocalDescription(answer);
-  socket.emit('answer', { answer, roomId });
-  log('[offer] Received offer and sent answer');
 });
 
-socket.on('answer', async ({ answer }) => {
-  await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
-  log('[answer] Received answer and set remote description');
+socket.on('answer', answer => {
+  peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+  console.log('[answer] Set remote description');
 });
 
-socket.on('ice-candidate', async ({ candidate }) => {
-  try {
-    await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-    log('[ice-candidate] Added ICE candidate');
-  } catch (e) {
-    log('[ice-candidate] Error adding candidate', e);
-  }
+socket.on('ice-candidate', candidate => {
+  peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+  console.log('[ice-candidate] Added remote candidate');
 });
