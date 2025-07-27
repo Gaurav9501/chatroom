@@ -1,47 +1,133 @@
-const express = require('express');
-const http = require('http');
-const path = require('path');
-const { Server } = require('socket.io');
+const socket = io();
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server);
+const joinScreen = document.getElementById('joinScreen');
+const chatScreen = document.getElementById('chatScreen');
+const chatForm = document.getElementById('chatForm');
+const chatBox = document.getElementById('chatBox');
+const roomNameSpan = document.getElementById('roomName');
 
-app.use(express.static(__dirname)); // serve static files (html, css, images)
+let username, room;
+let localStream;
+let peerConnection;
 
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+function joinRoom() {
+  username = document.getElementById('username').value;
+  room = document.getElementById('room').value;
+
+  if (!username || !room) return;
+
+  socket.emit('join', { username, room });
+
+  joinScreen.classList.add('hidden');
+  chatScreen.classList.remove('hidden');
+  roomNameSpan.textContent = room;
+}
+
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const input = document.getElementById('message');
+  if (input.value.trim()) {
+    socket.emit('chat message', input.value.trim());
+    appendMessage(username, input.value.trim(), true);
+    input.value = '';
+  }
 });
 
-io.on('connection', (socket) => {
-  socket.on('join room', ({ username, room }) => {
-    socket.join(room);
-    socket.username = username;
-    socket.room = room;
-
-    socket.to(room).emit('system message', `${username} joined the room.`);
-  });
-
-  socket.on('chat message', (message) => {
-    const { username, room } = socket;
-    if (room) {
-      io.to(room).emit('chat message', {
-        username,
-        message,
-        isSender: false,
-        from: username,
-      });
-    }
-  });
-
-  socket.on('disconnect', () => {
-    if (socket.room && socket.username) {
-      socket.to(socket.room).emit('system message', `${socket.username} left the room.`);
-    }
-  });
+socket.on('chat message', (data) => {
+  appendMessage(data.username, data.message, data.username === username);
 });
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+socket.on('user joined', (msg) => {
+  appendSystemMessage(msg);
+});
+
+socket.on('user left', (msg) => {
+  appendSystemMessage(msg);
+});
+
+function appendMessage(name, msg, isSelf) {
+  const msgEl = document.createElement('div');
+  msgEl.className = isSelf ? 'message-right' : 'message-left';
+  msgEl.innerHTML = `<strong>${name}</strong>: ${msg}`;
+  chatBox.appendChild(msgEl);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+function appendSystemMessage(msg) {
+  const msgEl = document.createElement('div');
+  msgEl.className = 'message-left';
+  msgEl.innerHTML = `<em>${msg}</em>`;
+  chatBox.appendChild(msgEl);
+  chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// WebRTC Call
+const callBtn = document.getElementById('callBtn');
+const endCallBtn = document.getElementById('endCallBtn');
+const localVideo = document.getElementById('localVideo');
+const remoteVideo = document.getElementById('remoteVideo');
+
+callBtn.onclick = async () => {
+  callBtn.classList.add('hidden');
+  endCallBtn.classList.remove('hidden');
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localVideo.srcObject = localStream;
+
+  peerConnection = new RTCPeerConnection();
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+  peerConnection.onicecandidate = (e) => {
+    if (e.candidate) socket.emit('ice-candidate', e.candidate);
+  };
+
+  peerConnection.ontrack = (e) => {
+    remoteVideo.srcObject = e.streams[0];
+  };
+
+  const offer = await peerConnection.createOffer();
+  await peerConnection.setLocalDescription(offer);
+  socket.emit('offer', offer);
+};
+
+endCallBtn.onclick = () => {
+  callBtn.classList.remove('hidden');
+  endCallBtn.classList.add('hidden');
+  peerConnection?.close();
+  localStream?.getTracks().forEach(track => track.stop());
+  localVideo.srcObject = null;
+  remoteVideo.srcObject = null;
+};
+
+// Handle WebRTC responses
+socket.on('offer', async (offer) => {
+  localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  localVideo.srcObject = localStream;
+
+  peerConnection = new RTCPeerConnection();
+  localStream.getTracks().forEach(track => peerConnection.addTrack(track, localStream));
+
+  peerConnection.onicecandidate = (e) => {
+    if (e.candidate) socket.emit('ice-candidate', e.candidate);
+  };
+
+  peerConnection.ontrack = (e) => {
+    remoteVideo.srcObject = e.streams[0];
+  };
+
+  await peerConnection.setRemoteDescription(offer);
+  const answer = await peerConnection.createAnswer();
+  await peerConnection.setLocalDescription(answer);
+  socket.emit('answer', answer);
+});
+
+socket.on('answer', async (answer) => {
+  await peerConnection.setRemoteDescription(answer);
+});
+
+socket.on('ice-candidate', async (candidate) => {
+  try {
+    await peerConnection.addIceCandidate(candidate);
+  } catch (e) {
+    console.error('Error adding ICE candidate:', e);
+  }
 });
