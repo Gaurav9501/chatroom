@@ -16,6 +16,15 @@ io.on("connection", (socket) => {
     socket.username = username;
     socket.roomId = roomId;
     console.log(`[Server] ${username} joined room ${roomId}`);
+
+    socket.to(roomId).emit("user-joined", username);
+  });
+
+  socket.on("leave", ({ username, roomId }) => {
+    socket.leave(roomId);
+    console.log(`[Server] ${username} left room ${roomId}`);
+
+    socket.to(roomId).emit("user-left", username);
   });
 
   socket.on("offer", ({ offer, roomId }) => {
@@ -39,7 +48,10 @@ io.on("connection", (socket) => {
   });
 
   socket.on("disconnect", () => {
-    console.log("[Server] Client disconnected:", socket.id);
+    if (socket.username && socket.roomId) {
+      socket.to(socket.roomId).emit("user-left", socket.username);
+      console.log(`[Server] Client disconnected and left room ${socket.roomId}: ${socket.username}`);
+    }
   });
 });
 
