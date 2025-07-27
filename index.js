@@ -1,61 +1,58 @@
-const express = require("express");
-const http = require("http");
-const socketIO = require("socket.io");
+const express = require('express');
+const http = require('http');
+const path = require('path');
+const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
-const io = socketIO(server);
+const io = new Server(server);
 
-app.use(express.static(__dirname)); // serve index.html and client.js
+// Serve all static files (index.html, style.css, client.js) from root folder
+app.use(express.static(__dirname));
 
-io.on("connection", (socket) => {
-  console.log("[Server] New client connected:", socket.id);
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
-  socket.on("join", ({ username, roomId }) => {
+io.on('connection', (socket) => {
+  let currentRoom = null;
+  let currentUser = null;
+
+  socket.on('join-room', (roomId, username) => {
+    currentRoom = roomId;
+    currentUser = username;
+
     socket.join(roomId);
-    socket.username = username;
-    socket.roomId = roomId;
-    console.log(`[Server] ${username} joined room ${roomId}`);
+    socket.to(roomId).emit('user-joined', username);
 
-    socket.to(roomId).emit("user-joined", username);
+    console.log(`${username} joined room ${roomId}`);
+
+    socket.on('send-message', (message) => {
+      io.to(roomId).emit('receive-message', { message, username });
+    });
+
+    socket.on('offer', (data) => {
+      socket.to(roomId).emit('offer', data);
+    });
+
+    socket.on('answer', (data) => {
+      socket.to(roomId).emit('answer', data);
+    });
+
+    socket.on('ice-candidate', (data) => {
+      socket.to(roomId).emit('ice-candidate', data);
+    });
   });
 
-  socket.on("leave", ({ username, roomId }) => {
-    socket.leave(roomId);
-    console.log(`[Server] ${username} left room ${roomId}`);
-
-    socket.to(roomId).emit("user-left", username);
-  });
-
-  socket.on("offer", ({ offer, roomId }) => {
-    socket.to(roomId).emit("offer", { offer });
-    console.log(`[Server] Offer sent to room ${roomId}`);
-  });
-
-  socket.on("answer", ({ answer, roomId }) => {
-    socket.to(roomId).emit("answer", { answer });
-    console.log(`[Server] Answer sent to room ${roomId}`);
-  });
-
-  socket.on("ice-candidate", ({ candidate, roomId }) => {
-    socket.to(roomId).emit("ice-candidate", candidate);
-    console.log(`[Server] ICE candidate sent to room ${roomId}`);
-  });
-
-  socket.on("chat", ({ roomId, message, sender }) => {
-    socket.to(roomId).emit("chat", { message, sender });
-    console.log(`[Server] Chat from ${sender}: ${message}`);
-  });
-
-  socket.on("disconnect", () => {
-    if (socket.username && socket.roomId) {
-      socket.to(socket.roomId).emit("user-left", socket.username);
-      console.log(`[Server] Client disconnected and left room ${socket.roomId}: ${socket.username}`);
+  socket.on('disconnect', () => {
+    if (currentRoom && currentUser) {
+      socket.to(currentRoom).emit('user-left', currentUser);
+      console.log(`${currentUser} disconnected from room ${currentRoom}`);
     }
   });
 });
 
-const PORT = 3000;
+const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`[Server] Server running at http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
