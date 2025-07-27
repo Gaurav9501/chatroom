@@ -5,10 +5,12 @@ body {
   padding: 20px;
   background: #f0f0f0;
 }
+
 #chatSection {
   display: none;
   margin-top: 20px;
 }
+
 #messageArea {
   height: 200px;
   overflow-y: auto;
@@ -17,20 +19,24 @@ body {
   padding: 10px;
   margin-bottom: 10px;
 }
+
 .message.sender {
   text-align: right;
   color: blue;
 }
+
 .message.receiver {
   text-align: left;
   color: green;
 }
+
 video {
   width: 48%;
   max-height: 200px;
   border: 1px solid #ccc;
   border-radius: 5px;
 }
+
 form > * {
   margin: 5px 0;
 }
