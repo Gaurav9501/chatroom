@@ -2,6 +2,7 @@
 const socket = io();
 let username, roomId;
 let localStream, remoteStream, peerConnection;
+let isCaller = false;
 
 const messageForm = document.getElementById('messageForm');
 const messageInput = document.getElementById('messageInput');
@@ -37,6 +38,7 @@ function appendMessage(message, type) {
 }
 
 function startCall() {
+  isCaller = true;
   socket.emit('incoming-call');
   console.log('[startCall] Sent incoming call request');
 }
@@ -47,7 +49,8 @@ function showIncomingCallPopup() {
   if (accept) {
     socket.emit('call-accepted');
     console.log('[showIncomingCallPopup] Call accepted');
-    startWebRTC(true);
+    isCaller = false;
+    startWebRTC();
   } else {
     socket.emit('call-rejected');
     console.log('[showIncomingCallPopup] Call rejected');
@@ -60,7 +63,7 @@ function updateDotStatus(dot, stream) {
   dot.classList.add(hasAudio ? 'green' : 'red');
 }
 
-function startWebRTC(isCaller) {
+function startWebRTC() {
   console.log('[startWebRTC] Starting WebRTC connection...');
   navigator.mediaDevices.getUserMedia({ audio: true }).then(stream => {
     localStream = stream;
@@ -97,8 +100,9 @@ function startWebRTC(isCaller) {
 
     if (isCaller) {
       peerConnection.createOffer().then(offer => {
-        peerConnection.setLocalDescription(offer);
-        socket.emit('offer', offer);
+        return peerConnection.setLocalDescription(offer);
+      }).then(() => {
+        socket.emit('offer', peerConnection.localDescription);
         console.log('[call-accepted] Sent offer');
       });
     }
@@ -136,11 +140,11 @@ socket.on('incoming-call', () => {
 
 socket.on('call-accepted', () => {
   console.log('[socket] Call accepted by other user');
-  startWebRTC(true);
+  startWebRTC();
 });
 
 socket.on('offer', offer => {
-  if (!peerConnection) startWebRTC(false);
+  if (!peerConnection) startWebRTC();
   peerConnection.setRemoteDescription(new RTCSessionDescription(offer)).then(() => {
     return peerConnection.createAnswer();
   }).then(answer => {
