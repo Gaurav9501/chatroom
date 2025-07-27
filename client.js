@@ -15,6 +15,9 @@ window.onload = () => {
   const body = document.body;
   let incomingCallDiv;
 
+  // Container for unmute button (create once)
+  let unmuteBtn;
+
   function joinRoom() {
     username = document.getElementById('username').value.trim();
     roomId = document.getElementById('room').value.trim();
@@ -136,12 +139,17 @@ window.onload = () => {
           remoteAudio.srcObject = remoteStream;
           monitorAudioStream(remoteAudio, 'remoteAudioStatus');
           log('[peerConnection] Created remote media stream');
+
+          // Remove unmute button if present when remote stream starts
+          removeUnmuteButton();
         }
         remoteStream.addTrack(event.track);
         log(`[peerConnection] Received remote track: ${event.track.kind}`);
 
+        // Try to play remote audio and catch errors
         remoteAudio.play().catch(e => {
-          console.warn('[peerConnection] Remote audio play error:', e);
+          log('[peerConnection] Remote audio play error: ' + e);
+          showUnmuteButton();
         });
       };
 
@@ -243,8 +251,12 @@ window.onload = () => {
 
       setAudioStatus('localAudioStatus', false);
       setAudioStatus('remoteAudioStatus', false);
+
+      removeUnmuteButton();
     }
   };
+
+  // Debug / UI helpers
 
   function log(msg) {
     console.log(`[LOG] ${msg}`);
@@ -276,6 +288,38 @@ window.onload = () => {
 
     if (!audioElement.paused) {
       setAudioStatus(statusElementId, true);
+    }
+  }
+
+  // Show an unmute button below remote audio to manually start audio on autoplay block
+  function showUnmuteButton() {
+    if (unmuteBtn) return; // already shown
+
+    unmuteBtn = document.createElement('button');
+    unmuteBtn.textContent = 'Unmute Remote Audio';
+    unmuteBtn.style.marginTop = '10px';
+    unmuteBtn.onclick = () => {
+      remoteAudio.play()
+        .then(() => {
+          log('[UnmuteButton] Remote audio playback started manually');
+          setAudioStatus('remoteAudioStatus', true);
+          removeUnmuteButton();
+        })
+        .catch(e => {
+          log('[UnmuteButton] Failed to play remote audio: ' + e);
+        });
+    };
+
+    const container = document.getElementById('remoteAudioContainer');
+    if (container) {
+      container.appendChild(unmuteBtn);
+    }
+  }
+
+  function removeUnmuteButton() {
+    if (unmuteBtn) {
+      unmuteBtn.remove();
+      unmuteBtn = null;
     }
   }
 
