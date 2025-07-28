@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Image Gallery</title>
+  <title>Movie Picker</title>
   <link rel="stylesheet" href="style.css" />
   <style>
     .gallery {
@@ -11,22 +11,34 @@
       gap: 15px;
       margin-top: 20px;
     }
-    .image-box {
+
+    .image-box, .movie-box {
       border: 1px solid #ccc;
       padding: 10px;
       text-align: center;
       background: white;
+      width: 150px;
     }
+
     .image-box img {
-      max-width: 150px;
+      max-width: 100%;
       height: auto;
       cursor: pointer;
       display: block;
       margin-bottom: 5px;
     }
+
+    .movie-title {
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-bottom: 5px;
+    }
+
     .button-group {
       margin-top: 10px;
     }
+
     .modal {
       position: fixed;
       top: 0; left: 0; right: 0; bottom: 0;
@@ -37,17 +49,20 @@
       z-index: 1000;
       display: none;
     }
+
     .modal-content {
       background: white;
       padding: 20px;
       max-width: 90%;
       text-align: center;
     }
+
     .modal-content img {
       max-width: 100%;
       height: auto;
       margin: 10px;
     }
+
     .modal-content button {
       margin-top: 10px;
     }
@@ -55,12 +70,17 @@
 </head>
 <body>
 
-<h1>Image Gallery</h1>
+<h1>Movie Picker</h1>
 <a href="/">← Back to Home</a>
 
 <form id="uploadForm" enctype="multipart/form-data">
-  <input type="file" name="image" accept="image/*" required />
+  <input type="file" name="image" accept="image/*" />
   <button type="submit">Upload Image</button>
+</form>
+
+<form id="movieForm" style="margin-top: 10px;">
+  <input type="text" id="movieInput" placeholder="Enter movie name" required />
+  <button type="submit">Add Movie Name</button>
 </form>
 
 <div class="button-group">
@@ -72,7 +92,7 @@
 <!-- Modal -->
 <div class="modal" id="resultModal">
   <div class="modal-content" id="modalContent">
-    <h2>Top Voted Image(s)</h2>
+    <h2>Top Voted Item(s)</h2>
     <div id="resultImages"></div>
     <button onclick="closeModal()">Close</button>
   </div>
@@ -81,34 +101,48 @@
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
-  let allImages = [];
+  let allItems = [];
 
-  function renderImages(images) {
-    allImages = images;
+  function renderGallery(items) {
+    allItems = items;
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
 
-    images.forEach(({ filename, count }) => {
-      const div = document.createElement('div');
-      div.className = 'image-box';
+    items.forEach(({ type, filename, name, count }) => {
+      const box = document.createElement('div');
+      box.className = type === 'image' ? 'image-box' : 'movie-box';
 
-      const img = document.createElement('img');
-      img.src = `/uploads/${filename}`;
-      img.onclick = () => socket.emit('image-clicked', filename);
+      if (type === 'image') {
+        const img = document.createElement('img');
+        img.src = `/uploads/${filename}`;
+        img.onclick = () => socket.emit('item-clicked', { type: 'image', key: filename });
 
-      const stat = document.createElement('p');
-      stat.textContent = `Clicked: ${count} times`;
+        const stat = document.createElement('p');
+        stat.textContent = `Clicked: ${count} times`;
 
-      div.appendChild(img);
-      div.appendChild(stat);
-      gallery.appendChild(div);
+        box.appendChild(img);
+        box.appendChild(stat);
+      } else {
+        const title = document.createElement('div');
+        title.className = 'movie-title';
+        title.textContent = name;
+        title.onclick = () => socket.emit('item-clicked', { type: 'movie', key: name });
+
+        const stat = document.createElement('p');
+        stat.textContent = `Clicked: ${count} times`;
+
+        box.appendChild(title);
+        box.appendChild(stat);
+      }
+
+      gallery.appendChild(box);
     });
   }
 
-  async function fetchImagesOnce() {
-    const res = await fetch('/images');
-    const images = await res.json();
-    renderImages(images);
+  async function fetchItemsOnce() {
+    const res = await fetch('/items');
+    const items = await res.json();
+    renderGallery(items);
   }
 
   document.getElementById('uploadForm').addEventListener('submit', async (e) => {
@@ -121,25 +155,44 @@
     e.target.reset();
   });
 
-  socket.on('image-stats', renderImages);
+  document.getElementById('movieForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const movieName = document.getElementById('movieInput').value.trim();
+    if (!movieName) return;
+    await fetch('/add-movie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: movieName })
+    });
+    document.getElementById('movieInput').value = '';
+  });
 
-  // Show Result button logic
+  socket.on('item-stats', renderGallery);
+
   document.getElementById('resultBtn').addEventListener('click', () => {
-    if (!allImages.length) return alert("No images uploaded.");
+    if (!allItems.length) return alert("No items added.");
 
-    const maxCount = Math.max(...allImages.map(img => img.count));
-    const topImages = allImages.filter(img => img.count === maxCount && maxCount > 0);
+    const maxCount = Math.max(...allItems.map(i => i.count));
+    const topItems = allItems.filter(i => i.count === maxCount && maxCount > 0);
 
     const container = document.getElementById('resultImages');
     container.innerHTML = '';
 
-    if (topImages.length === 0) {
-      container.innerHTML = '<p>No image has been clicked yet.</p>';
+    if (topItems.length === 0) {
+      container.innerHTML = '<p>No item has been clicked yet.</p>';
     } else {
-      topImages.forEach(img => {
-        const image = document.createElement('img');
-        image.src = `/uploads/${img.filename}`;
-        container.appendChild(image);
+      topItems.forEach(item => {
+        if (item.type === 'image') {
+          const img = document.createElement('img');
+          img.src = `/uploads/${item.filename}`;
+          container.appendChild(img);
+        } else {
+          const name = document.createElement('div');
+          name.textContent = item.name;
+          name.style.fontSize = '20px';
+          name.style.margin = '10px';
+          container.appendChild(name);
+        }
       });
     }
 
@@ -150,7 +203,8 @@
     document.getElementById('resultModal').style.display = 'none';
   }
 
-  fetchImagesOnce(); // Initial load
+  fetchItemsOnce(); // Initial load
 </script>
+
 </body>
 </html>
