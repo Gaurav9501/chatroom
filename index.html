@@ -199,11 +199,13 @@
 
       if (!message || !roomId || !currentUsername) return;
 
-      socket.emit('chat:message', {
-        roomId,
-        message,
-        username: currentUsername
-      });
+    socket.on('chat:message', function(msg) {
+  if (!msg || !msg.message || !msg.username) return;
+
+  const item = document.createElement('li');
+  item.textContent = `${msg.username}: ${msg.message}`;
+  messages.appendChild(item);
+});
 
       addMessageToUI(message, true);
       messageInput.value = '';
