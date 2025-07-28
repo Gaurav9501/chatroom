@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Comment Page</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 30px auto;
+      background: #f9f9f9;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      font-size: 16px;
+      resize: vertical;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background-color: #128c7e;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      background-color: #075e54;
+    }
+
+    .comment-list {
+      margin-top: 30px;
+      background: #fff;
+      padding: 15px;
+      border-radius: 5px;
+      max-height: 300px;
+      overflow-y: auto;
+    }
+
+    .comment {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .comment:last-child {
+      border-bottom: none;
+    }
+
+    nav {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    nav a {
+      margin: 0 10px;
+      text-decoration: none;
+      color: #128c7e;
+      font-weight: bold;
+    }
+
+    nav a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="/">🏠 Home</a>
+    <a href="/comment.html">📝 Comments</a>
+    <a href="/index.html">💬 Chat</a>
+  </nav>
+
+  <h2>Leave a Comment</h2>
+  <textarea id="commentBox" placeholder="Write your comment here..."></textarea>
+  <br>
+  <button onclick="submitComment()">Submit</button>
+
+  <div class="comment-list" id="commentList"></div>
+
+  <script>
+    function submitComment() {
+      const box = document.getElementById('commentBox');
+      const comment = box.value.trim();
+      if (!comment) return;
+
+      const div = document.createElement('div');
+      div.className = 'comment';
+      div.textContent = comment;
+
+      document.getElementById('commentList').prepend(div);
+      box.value = '';
+    }
+  </script>
+</body>
+</html>
