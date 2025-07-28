@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Comment Page</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -92,18 +93,23 @@
   <div class="comment-list" id="commentList"></div>
 
   <script>
+    const socket = io();
+
     function submitComment() {
       const box = document.getElementById('commentBox');
       const comment = box.value.trim();
       if (!comment) return;
 
-      const div = document.createElement('div');
-      div.className = 'comment';
-      div.textContent = comment;
-
-      document.getElementById('commentList').prepend(div);
+      socket.emit('new-comment', comment);
       box.value = '';
     }
+
+    socket.on('new-comment', (msg) => {
+      const div = document.createElement('div');
+      div.className = 'comment';
+      div.textContent = msg;
+      document.getElementById('commentList').prepend(div);
+    });
   </script>
 </body>
 </html>
