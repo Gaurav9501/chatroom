@@ -78,6 +78,7 @@
     socket.on('comment:all', (allComments) => {
       commentList.innerHTML = '';
       allComments.forEach(comment => {
+        console.log(comment);
         addCommentToList(comment);
       });
     });
