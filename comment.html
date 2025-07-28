@@ -72,6 +72,27 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+    const commentList = document.getElementById('commentList');
+
+    // Load all existing comments on connect
+    socket.on('comment:all', (allComments) => {
+      commentList.innerHTML = '';
+      allComments.forEach(comment => {
+        addCommentToList(comment);
+      });
+    });
+
+    // Add new comment received from server
+    socket.on('comment:new', (comment) => {
+      addCommentToList(comment);
+    });
+
+    function addCommentToList(comment) {
+      const item = document.createElement('li');
+      const time = new Date(comment.timestamp).toLocaleString();
+      item.textContent = `${comment.text} (${time})`;
+      commentList.prepend(item);
+    }
 
     function sendComment() {
       const input = document.getElementById('commentInput');
@@ -80,12 +101,6 @@
       socket.emit('comment:new', msg);
       input.value = '';
     }
-
-    socket.on('comment:new', function(msg) {
-      const item = document.createElement('li');
-      item.textContent = msg;
-      document.getElementById('commentList').prepend(item);
-    });
   </script>
 </body>
 </html>
