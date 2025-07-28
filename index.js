@@ -1,78 +1,95 @@
 const express = require('express');
 const http = require('http');
-const path = require('path');
-const fs = require('fs');
 const multer = require('multer');
+const path = require('path');
 const { Server } = require('socket.io');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// In-memory image click counter
-const imageClicks = {};
+const upload = multer({ dest: 'uploads/' });
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir);
-
-// Multer for handling uploads
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, 'uploads'),
-  filename: (req, file, cb) => cb(null, `${Date.now()}-${file.originalname}`)
-});
-const upload = multer({ storage });
+const imageStats = {}; // filename -> count
+const movieStats = {}; // movie name -> count
 
 app.use(express.static(__dirname));
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
 
-// Routes
-app.get('/', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-app.get('/gallery', (req, res) => {
-  res.sendFile(path.join(__dirname, 'gallery.html'));
-});
-
-app.get('/images', (req, res) => {
-  const files = fs.readdirSync(uploadDir);
-  const data = files.map(filename => ({
-    filename,
-    count: imageClicks[filename] || 0
-  }));
-  res.json(data);
-});
-
+// Upload image
 app.post('/upload', upload.single('image'), (req, res) => {
   const filename = req.file.filename;
-  imageClicks[filename] = 0;
-  res.json({ success: true, filename });
-
-  broadcastImageStats(); // notify all clients of new image
+  if (!imageStats[filename]) {
+    imageStats[filename] = 0;
+  }
+  sendStats();
+  res.status(200).send('Uploaded');
 });
 
-// Socket.IO for real-time clicks
-io.on('connection', (socket) => {
-  console.log('Client connected');
+// Add movie name
+app.post('/add-movie', (req, res) => {
+  const name = req.body.name.trim();
+  if (!name) return res.status(400).send('Invalid name');
+  if (!movieStats[name]) {
+    movieStats[name] = 0;
+  }
+  sendStats();
+  res.status(200).send('Movie added');
+});
 
-  socket.on('image-clicked', (filename) => {
-    imageClicks[filename] = (imageClicks[filename] || 0) + 1;
-    broadcastImageStats();
+// Return all items (images + movies)
+app.get('/items', (req, res) => {
+  const items = [];
+
+  for (const [filename, count] of Object.entries(imageStats)) {
+    items.push({ type: 'image', filename, count });
+  }
+
+  for (const [name, count] of Object.entries(movieStats)) {
+    items.push({ type: 'movie', name, count });
+  }
+
+  res.json(items);
+});
+
+// Socket.io: Handle click events
+io.on('connection', (socket) => {
+  socket.emit('item-stats', getCurrentStats());
+
+  socket.on('item-clicked', ({ type, key }) => {
+    if (type === 'image') {
+      if (imageStats[key] !== undefined) {
+        imageStats[key]++;
+      }
+    } else if (type === 'movie') {
+      if (movieStats[key] !== undefined) {
+        movieStats[key]++;
+      }
+    }
+    sendStats();
   });
 });
 
-function broadcastImageStats() {
-  const files = fs.readdirSync(uploadDir);
-  const data = files.map(filename => ({
-    filename,
-    count: imageClicks[filename] || 0
-  }));
-  io.emit('image-stats', data);
+function getCurrentStats() {
+  const items = [];
+
+  for (const [filename, count] of Object.entries(imageStats)) {
+    items.push({ type: 'image', filename, count });
+  }
+
+  for (const [name, count] of Object.entries(movieStats)) {
+    items.push({ type: 'movie', name, count });
+  }
+
+  return items;
 }
 
-const PORT = process.env.PORT || 5000;
+function sendStats() {
+  io.emit('item-stats', getCurrentStats());
+}
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on http://localhost:${PORT}`);
 });
