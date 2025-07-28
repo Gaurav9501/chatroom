@@ -31,7 +31,7 @@
     #uploadSection {
       display: flex;
       gap: 10px;
-      margin-bottom: 20px;
+      margin-bottom: 10px;
     }
     #imageUrl {
       flex-grow: 1;
@@ -53,6 +53,10 @@
     }
     button:hover {
       background-color: #075e54;
+    }
+    #topVotedBtn {
+      margin-bottom: 20px;
+      width: 100%;
     }
     #moviesContainer {
       display: grid;
@@ -115,12 +119,16 @@
       <button onclick="addMovie()">Upload</button>
     </div>
 
+    <!-- New Button -->
+    <button id="topVotedBtn" onclick="showTopVotedMovie()">Show Top Voted Movie</button>
+
     <div id="moviesContainer"></div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+    let currentMovies = [];
 
     function addMovie() {
       const imageUrl = document.getElementById('imageUrl').value.trim();
@@ -140,6 +148,7 @@
     socket.emit('movie:getVotes');
 
     socket.on('movie:updateVotes', (movies) => {
+      currentMovies = movies;  // keep movies locally for top voted logic
       const container = document.getElementById('moviesContainer');
       container.innerHTML = '';
       movies.forEach(movie => {
@@ -154,6 +163,48 @@
         container.appendChild(div);
       });
     });
+
+    function showTopVotedMovie() {
+      if (!currentMovies.length) {
+        alert('No movies available.');
+        return;
+      }
+      // Find movie with highest votes
+      const topMovie = currentMovies.reduce((prev, curr) => (curr.votes > prev.votes ? curr : prev), currentMovies[0]);
+      if (!topMovie || !topMovie.image) {
+        alert('Top voted movie data not found.');
+        return;
+      }
+      // Open new window/tab showing the image only
+      const win = window.open('', '_blank', 'width=600,height=800');
+      win.document.write(`
+        <html>
+          <head>
+            <title>Top Voted Movie</title>
+            <style>
+              body {
+                margin: 0;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                background: #222;
+              }
+              img {
+                max-width: 90vw;
+                max-height: 90vh;
+                border-radius: 12px;
+                box-shadow: 0 0 20px rgba(255,255,255,0.3);
+              }
+            </style>
+          </head>
+          <body>
+            <img src="${topMovie.image}" alt="Top Voted Movie" />
+          </body>
+        </html>
+      `);
+      win.document.close();
+    }
   </script>
 </body>
 </html>
