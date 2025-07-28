@@ -146,7 +146,7 @@
       if (!msg) return;
       const item = document.createElement('li');
       console.log("message recived: "+msg.message)
-      item.textContent = msg;
+      item.textContent = msg.message;
       messages.appendChild(item);
       messages.scrollTop = messages.scrollHeight;
     });
