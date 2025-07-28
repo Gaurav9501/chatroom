@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Image Gallery</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   <style>
     .gallery {
       display: flex;
@@ -15,6 +15,7 @@
       border: 1px solid #ccc;
       padding: 10px;
       text-align: center;
+      background: white;
     }
     .image-box img {
       max-width: 150px;
@@ -37,11 +38,11 @@
 
 <div class="gallery" id="gallery"></div>
 
+<script src="/socket.io/socket.io.js"></script>
 <script>
-  async function fetchImages() {
-    const res = await fetch('/images');
-    const images = await res.json();
+  const socket = io();
 
+  function renderImages(images) {
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
 
@@ -51,7 +52,7 @@
 
       const img = document.createElement('img');
       img.src = `/uploads/${filename}`;
-      img.onclick = () => imageClicked(filename);
+      img.onclick = () => socket.emit('image-clicked', filename);
 
       const stat = document.createElement('p');
       stat.textContent = `Clicked: ${count} times`;
@@ -62,9 +63,10 @@
     });
   }
 
-  async function imageClicked(filename) {
-    await fetch(`/click/${filename}`, { method: 'POST' });
-    fetchImages();
+  async function fetchImagesOnce() {
+    const res = await fetch('/images');
+    const images = await res.json();
+    renderImages(images);
   }
 
   document.getElementById('uploadForm').addEventListener('submit', async (e) => {
@@ -75,10 +77,11 @@
       body: formData
     });
     e.target.reset();
-    fetchImages();
   });
 
-  fetchImages();
+  socket.on('image-stats', renderImages);
+
+  fetchImagesOnce(); // Initial load
 </script>
 </body>
 </html>
