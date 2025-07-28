@@ -44,12 +44,18 @@ app.get('/items', (req, res) => {
 
 app.delete('/delete-image/:filename', (req, res) => {
   const filename = req.params.filename;
-  if (!imageStats[filename]) return res.status(404).send('Image not found');
 
-  delete imageStats[filename];
+  // Remove from stats if exists
+  if (imageStats[filename] !== undefined) {
+    delete imageStats[filename];
+  }
+
+  // Delete from file system
   const filePath = path.join(__dirname, 'uploads', filename);
   fs.unlink(filePath, (err) => {
-    if (err) return res.status(500).send('File delete failed');
+    if (err && err.code !== 'ENOENT') {
+      return res.status(500).send('File delete failed');
+    }
     sendStats();
     res.status(200).send('Deleted');
   });
