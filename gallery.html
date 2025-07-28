@@ -24,6 +24,33 @@
       display: block;
       margin-bottom: 5px;
     }
+    .button-group {
+      margin-top: 10px;
+    }
+    .modal {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      display: none;
+    }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      max-width: 90%;
+      text-align: center;
+    }
+    .modal-content img {
+      max-width: 100%;
+      height: auto;
+      margin: 10px;
+    }
+    .modal-content button {
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -36,13 +63,28 @@
   <button type="submit">Upload Image</button>
 </form>
 
+<div class="button-group">
+  <button id="resultBtn">Show Result</button>
+</div>
+
 <div class="gallery" id="gallery"></div>
+
+<!-- Modal -->
+<div class="modal" id="resultModal">
+  <div class="modal-content" id="modalContent">
+    <h2>Top Voted Image(s)</h2>
+    <div id="resultImages"></div>
+    <button onclick="closeModal()">Close</button>
+  </div>
+</div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
+  let allImages = [];
 
   function renderImages(images) {
+    allImages = images;
     const gallery = document.getElementById('gallery');
     gallery.innerHTML = '';
 
@@ -80,6 +122,33 @@
   });
 
   socket.on('image-stats', renderImages);
+
+  // Show Result button logic
+  document.getElementById('resultBtn').addEventListener('click', () => {
+    if (!allImages.length) return alert("No images uploaded.");
+
+    const maxCount = Math.max(...allImages.map(img => img.count));
+    const topImages = allImages.filter(img => img.count === maxCount && maxCount > 0);
+
+    const container = document.getElementById('resultImages');
+    container.innerHTML = '';
+
+    if (topImages.length === 0) {
+      container.innerHTML = '<p>No image has been clicked yet.</p>';
+    } else {
+      topImages.forEach(img => {
+        const image = document.createElement('img');
+        image.src = `/uploads/${img.filename}`;
+        container.appendChild(image);
+      });
+    }
+
+    document.getElementById('resultModal').style.display = 'flex';
+  });
+
+  function closeModal() {
+    document.getElementById('resultModal').style.display = 'none';
+  }
 
   fetchImagesOnce(); // Initial load
 </script>
