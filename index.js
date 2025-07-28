@@ -62,6 +62,11 @@ io.on('connection', (socket) => {
   socket.on('chat message', ({ roomId, message }) => {
     io.to(roomId).emit('chat message', message);
   });
+
+  socket.on('new-comment', (msg) => {
+    io.emit('new-comment', msg); // Broadcast to all connected users
+  });
+
 });
 
 const PORT = process.env.PORT || 3000;
