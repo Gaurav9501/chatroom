@@ -79,16 +79,20 @@ io.on('connection', (socket) => {
     socket.data.roomId = roomId;
   });
 
-  socket.on('chat:message', ({ roomId, message }) => {
-  if (!message || !roomId || !socket.data.username) return;
-
-  const payload = {
-    username: socket.data.username,
-    message: message.trim()
-  };
-
-  io.to(roomId).emit('chat:message', payload);
+    socket.on('chat:message', ({ roomId, message, sender }) => {
+  io.to(roomId).emit('chat:message', { message, sender });
 });
+  
+//   socket.on('chat:message', ({ roomId, message }) => {
+//   if (!message || !roomId || !socket.data.username) return;
+
+//   const payload = {
+//     username: socket.data.username,
+//     message: message.trim()
+//   };
+
+//   io.to(roomId).emit('chat:message', payload);
+// });
 
   // =====================
   // 📝 Comment Events (comments.html)
