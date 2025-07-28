@@ -20,11 +20,11 @@
       height: 100vh;
     }
 
-    .chat-container {
+    .container {
+      width: 100%;
+      max-width: 800px;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(15px);
-      width: 100%;
-      max-width: 500px;
       border-radius: 16px;
       box-shadow: 0 8px 32px rgba(0,0,0,0.3);
       overflow: hidden;
@@ -41,37 +41,47 @@
       font-weight: bold;
     }
 
-    .join-room {
+    .join-section {
+      padding: 30px;
       display: flex;
-      gap: 10px;
-      padding: 15px;
-      background-color: rgba(255, 255, 255, 0.15);
+      flex-direction: column;
+      gap: 15px;
     }
 
-    .join-room input, .join-room button {
-      padding: 10px;
+    .join-section input {
+      padding: 12px;
+      border-radius: 10px;
       border: none;
-      border-radius: 8px;
       font-size: 1rem;
     }
 
-    .join-room input {
-      flex: 1;
-    }
-
-    .join-room button {
+    .join-section button {
+      padding: 12px;
       background-color: #0f9d58;
       color: white;
-      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      font-size: 1rem;
       font-weight: bold;
+      cursor: pointer;
+    }
+
+    .join-section button:hover {
+      background-color: #0c7c45;
+    }
+
+    .chat-window {
+      display: none;
+      flex-direction: column;
+      height: 600px;
     }
 
     #messages {
-      flex: 1;
       list-style: none;
       padding: 20px;
       margin: 0;
       overflow-y: auto;
+      flex: 1;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -118,13 +128,13 @@
       cursor: pointer;
     }
 
-    form button:hover, .join-room button:hover {
+    form button:hover {
       background-color: #0c7c45;
     }
 
     @media (max-width: 600px) {
-      .join-room {
-        flex-direction: column;
+      .container {
+        border-radius: 0;
       }
 
       form {
@@ -138,54 +148,70 @@
   </style>
 </head>
 <body>
-  <div class="chat-container">
+  <div class="container">
     <div class="chat-header">💬 Modern Chat Room</div>
 
-    <div class="join-room">
+    <div class="join-section" id="joinSection">
       <input id="username" placeholder="Your name" />
-      <input id="roomId" placeholder="Room ID" />
-      <button onclick="joinRoom()">Join</button>
+      <input id="roomId" placeholder="Room code" />
+      <button onclick="joinRoom()">Join Room</button>
     </div>
 
-    <ul id="messages"></ul>
-
-    <form id="messageForm">
-      <input id="messageInput" autocomplete="off" placeholder="Type a message..." />
-      <button>Send</button>
-    </form>
+    <div class="chat-window" id="chatWindow">
+      <ul id="messages"></ul>
+      <form id="messageForm">
+        <input id="messageInput" autocomplete="off" placeholder="Type a message..." />
+        <button>Send</button>
+      </form>
+    </div>
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-
     let currentUsername = '';
+    const joinSection = document.getElementById('joinSection');
+    const chatWindow = document.getElementById('chatWindow');
+    const messages = document.getElementById('messages');
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
 
     function joinRoom() {
-      const username = document.getElementById('username').value.trim();
+      const usernameInput = document.getElementById('username').value.trim();
       const roomId = document.getElementById('roomId').value.trim();
-      if (username && roomId) {
-        currentUsername = username;
-        socket.emit('chat:joinRoom', { username, roomId });
+
+      if (!usernameInput || !roomId) {
+        alert('Please enter both name and room code.');
+        return;
       }
+
+      currentUsername = usernameInput;
+      socket.emit('chat:joinRoom', { username: currentUsername, roomId });
+
+      joinSection.style.display = 'none';
+      chatWindow.style.display = 'flex';
     }
 
-    const form = document.getElementById('messageForm');
-    const input = document.getElementById('messageInput');
-    const messages = document.getElementById('messages');
-
-    form.addEventListener('submit', function(e) {
+    messageForm.addEventListener('submit', function(e) {
       e.preventDefault();
-      const message = input.value.trim();
+      const message = messageInput.value.trim();
       const roomId = document.getElementById('roomId').value.trim();
-      if (message && roomId) {
-        socket.emit('chat:message', { roomId, message, username: currentUsername });
-        addMessageToUI(message, true);
-        input.value = '';
-      }
+
+      if (!message || !roomId || !currentUsername) return;
+
+      socket.emit('chat:message', {
+        roomId,
+        message,
+        username: currentUsername
+      });
+
+      addMessageToUI(message, true);
+      messageInput.value = '';
     });
 
     socket.on('chat:message', function(data) {
+      if (!data || !data.message || !data.username) return;
+
       if (data.username !== currentUsername) {
         addMessageToUI(`${data.username}: ${data.message}`, false);
       }
