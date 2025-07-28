@@ -2,40 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>WebRTC Audio/Video Chat</title>
-  <link rel="stylesheet" href="style.css" />
+  <title>Chat App Home</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    nav {
+      background-color: #333;
+      color: white;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    nav h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    nav button {
+      background-color: #007bff;
+      color: white;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    nav button:hover {
+      background-color: #0056b3;
+    }
+
+    .content {
+      padding: 20px;
+    }
+  </style>
 </head>
 <body>
 
-<h1>WebRTC Audio/Video Chat</h1>
+  <nav>
+    <h1>Welcome to ChatApp</h1>
+    <button onclick="location.href='/gallery.html'">Movie Picker</button>
+  </nav>
 
-<div id="joinSection">
-  <input type="text" id="username" placeholder="Your Name" />
-  <input type="text" id="room" placeholder="Room Code" />
-  <button onclick="joinRoom()">Join Room</button>
-</div>
-
-<div id="chatSection">
-  <div>
-    <video id="localVideo" autoplay muted playsinline></video>
-    <video id="remoteVideo" autoplay playsinline></video>
+  <div class="content">
+    <h2>Home Page</h2>
+    <p>This is the main landing page for your Chat App.</p>
+    <p>Click "Movie Picker" to go to the image gallery and voting page.</p>
   </div>
-
-  <div id="messageArea"></div>
-
-  <form id="messageForm">
-    <input type="text" id="messageInput" placeholder="Type a message..." autocomplete="off" required />
-    <button type="submit">Send</button>
-  </form>
-
-  <button type="button" onclick="startCall(true)">📹 Start Video Call</button>
-  <button type="button" onclick="startCall(false)">🎧 Start Audio Call</button>
-  <button type="button" onclick="dropCall()">❌ Drop Call</button>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script src="client.js"></script>
 
 </body>
 </html>
