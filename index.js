@@ -80,8 +80,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat:message', ({ roomId, message }) => {
-    io.to(roomId).emit('chat:message', message);
-  });
+  if (!message || !roomId || !socket.data.username) return;
+
+  const payload = {
+    username: socket.data.username,
+    message: message.trim()
+  };
+
+  io.to(roomId).emit('chat:message', payload);
+});
 
   // =====================
   // 📝 Comment Events (comments.html)
