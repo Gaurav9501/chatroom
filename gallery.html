@@ -2,232 +2,92 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Movie Picker</title>
-  <link rel="stylesheet" href="style.css" />
-  <style>
-    .gallery {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .image-box, .movie-box {
-      border: 1px solid #ccc;
-      padding: 10px;
-      text-align: center;
-      background: white;
-      width: 150px;
-    }
-
-    .image-box img {
-      max-width: 100%;
-      height: auto;
-      cursor: pointer;
-      display: block;
-      margin-bottom: 5px;
-    }
-
-    .movie-title {
-      font-size: 16px;
-      font-weight: bold;
-      cursor: pointer;
-      margin-bottom: 5px;
-    }
-
-    .button-group {
-      margin-top: 10px;
-    }
-
-    .modal {
-      position: fixed;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      z-index: 1000;
-      display: none;
-    }
-
-    .modal-content {
-      background: white;
-      padding: 20px;
-      max-width: 90%;
-      text-align: center;
-    }
-
-    .modal-content img {
-      max-width: 100%;
-      height: auto;
-      margin: 10px;
-    }
-
-    .modal-content button {
-      margin-top: 10px;
-    }
-
-    button {
-      cursor: pointer;
-    }
-  </style>
+  <title>Gallery</title>
+  <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
+  <h1>Gallery</h1>
 
-<h1>Movie Picker</h1>
-<a href="/">← Back to Home</a>
+  <form id="uploadForm" enctype="multipart/form-data">
+    <input type="file" name="image" />
+    <button type="submit">Upload Image</button>
+  </form>
 
-<form id="uploadForm" enctype="multipart/form-data">
-  <input type="file" name="image" accept="image/*" />
-  <button type="submit">Upload Image</button>
-</form>
+  <form id="movieForm">
+    <input type="text" id="movieName" placeholder="Enter movie name" />
+    <button type="submit">Add Movie</button>
+  </form>
 
-<form id="movieForm" style="margin-top: 10px;">
-  <input type="text" id="movieInput" placeholder="Enter movie name" required />
-  <button type="submit">Add Movie Name</button>
-</form>
+  <div id="items"></div>
+  <button onclick="showMostClicked()">Result</button>
 
-<div class="button-group">
-  <button id="resultBtn">Show Result</button>
-</div>
+  <script>
+    const socket = io();
+    const itemsDiv = document.getElementById('items');
 
-<div class="gallery" id="gallery"></div>
-
-<!-- Modal -->
-<div class="modal" id="resultModal">
-  <div class="modal-content" id="modalContent">
-    <h2>Top Voted Item(s)</h2>
-    <div id="resultImages"></div>
-    <button onclick="closeModal()">Close</button>
-  </div>
-</div>
-
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io();
-  let allItems = [];
-
-  function renderGallery(items) {
-    allItems = items;
-    const gallery = document.getElementById('gallery');
-    gallery.innerHTML = '';
-
-    items.forEach(({ type, filename, name, count }) => {
-      const box = document.createElement('div');
-      box.className = type === 'image' ? 'image-box' : 'movie-box';
-
-      if (type === 'image') {
-        const img = document.createElement('img');
-        img.src = `/uploads/${filename}`;
-        img.onclick = () => socket.emit('item-clicked', { type: 'image', key: filename });
-
-        const stat = document.createElement('p');
-        stat.textContent = `Clicked: ${count} times`;
-
-        const delBtn = document.createElement('button');
-        delBtn.textContent = 'Delete';
-        delBtn.style.marginTop = '5px';
-        delBtn.onclick = async () => {
-          if (confirm('Delete this image?')) {
-            try {
-              const res = await fetch(`/delete-image/${filename}`, { method: 'DELETE' });
-              if (res.ok) {
-                alert('Image deleted');
-              } else {
-                alert('Failed to delete image');
-              }
-            } catch (e) {
-              alert('Error deleting image');
-            }
-          }
-        };
-
-        box.appendChild(img);
-        box.appendChild(stat);
-        box.appendChild(delBtn);
-      } else {
-        const title = document.createElement('div');
-        title.className = 'movie-title';
-        title.textContent = name;
-        title.onclick = () => socket.emit('item-clicked', { type: 'movie', key: name });
-
-        const stat = document.createElement('p');
-        stat.textContent = `Clicked: ${count} times`;
-
-        box.appendChild(title);
-        box.appendChild(stat);
-      }
-
-      gallery.appendChild(box);
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      await fetch('/upload', { method: 'POST', body: formData });
     });
-  }
 
-  async function fetchItemsOnce() {
-    const res = await fetch('/items');
-    const items = await res.json();
-    renderGallery(items);
-  }
-
-  document.getElementById('uploadForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const formData = new FormData(e.target);
-    await fetch('/upload', {
-      method: 'POST',
-      body: formData
+    document.getElementById('movieForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('movieName').value;
+      if (!name) return;
+      await fetch('/add-movie', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      document.getElementById('movieName').value = '';
     });
-    e.target.reset();
-  });
 
-  document.getElementById('movieForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const movieName = document.getElementById('movieInput').value.trim();
-    if (!movieName) return;
-    await fetch('/add-movie', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: movieName })
-    });
-    document.getElementById('movieInput').value = '';
-  });
+    socket.on('update-stats', renderItems);
 
-  socket.on('item-stats', renderGallery);
+    function renderItems(items) {
+      itemsDiv.innerHTML = '';
+      items.forEach(item => {
+        const wrapper = document.createElement('div');
+        wrapper.style.margin = '10px';
 
-  document.getElementById('resultBtn').addEventListener('click', () => {
-    if (!allItems.length) return alert("No items added.");
-
-    const maxCount = Math.max(...allItems.map(i => i.count));
-    const topItems = allItems.filter(i => i.count === maxCount && maxCount > 0);
-
-    const container = document.getElementById('resultImages');
-    container.innerHTML = '';
-
-    if (topItems.length === 0) {
-      container.innerHTML = '<p>No item has been clicked yet.</p>';
-    } else {
-      topItems.forEach(item => {
         if (item.type === 'image') {
           const img = document.createElement('img');
           img.src = `/uploads/${item.filename}`;
-          container.appendChild(img);
-        } else {
-          const name = document.createElement('div');
-          name.textContent = item.name;
-          name.style.fontSize = '20px';
-          name.style.margin = '10px';
-          container.appendChild(name);
+          img.style.width = '100px';
+          img.style.cursor = 'pointer';
+          img.onclick = () => socket.emit('item-clicked', { type: 'image', key: item.filename });
+
+          const del = document.createElement('button');
+          del.textContent = 'Delete';
+          del.onclick = async () => {
+            await fetch(`/delete-image/${item.filename}`, { method: 'DELETE' });
+          };
+
+          wrapper.appendChild(img);
+          wrapper.appendChild(document.createTextNode(` Clicks: ${item.count}`));
+          wrapper.appendChild(del);
+        } else if (item.type === 'movie') {
+          const div = document.createElement('div');
+          div.textContent = `${item.name} (Clicks: ${item.count})`;
+          div.style.cursor = 'pointer';
+          div.onclick = () => socket.emit('item-clicked', { type: 'movie', key: item.name });
+          wrapper.appendChild(div);
         }
+
+        itemsDiv.appendChild(wrapper);
       });
     }
 
-    document.getElementById('resultModal').style.display = 'flex';
-  });
-
-  function closeModal() {
-    document.getElementById('resultModal').style.display = 'none';
-  }
-
-  fetchItemsOnce(); // Initial load
-</script>
-
+    function showMostClicked() {
+      fetch('/items')
+        .then(res => res.json())
+        .then(items => {
+          let max = Math.max(...items.map(i => i.count));
+          let topItems = items.filter(i => i.count === max);
+          alert('Top picked:\n' + topItems.map(i => i.type === 'image' ? i.filename : i.name).join('\n'));
+        });
+    }
+  </script>
 </body>
 </html>
