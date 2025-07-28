@@ -1,13 +1,14 @@
 {
   "name": "chatapp",
   "version": "1.0.0",
-  "description": "Chat app with video calling and room support",
+  "description": "Chat app with video calling, room support, and image click tracking",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2"
+    "socket.io": "^4.7.2",
+    "multer": "^1.4.5-lts.1"
   }
 }
