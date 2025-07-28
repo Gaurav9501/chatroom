@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Movies Page</title>
+  <meta charset="UTF-8" />
+  <title>Movie Voting</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background-color: #f0f0f0;
+      background: #f0f0f0;
       padding: 30px;
       text-align: center;
     }
@@ -15,23 +15,60 @@
       color: #333;
     }
 
-    .movie-card {
-      background: white;
-      border-radius: 10px;
-      padding: 20px;
-      margin: 10px auto;
-      max-width: 400px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    .movie-grid {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
     }
 
-    .movie-card h3 {
-      margin-top: 0;
+    .movie {
+      background: #fff;
+      border-radius: 10px;
+      padding: 10px;
+      width: 200px;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .movie img {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .movie img:hover {
+      transform: scale(1.05);
+    }
+
+    .vote-count {
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    #resultBtn {
+      margin-top: 30px;
+      padding: 10px 20px;
+      background-color: #128c7e;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    #resultBtn:hover {
+      background-color: #075e54;
     }
 
     a {
-      text-decoration: none;
+      display: block;
+      margin-top: 30px;
       color: #128c7e;
       font-weight: bold;
+      text-decoration: none;
     }
 
     a:hover {
@@ -40,24 +77,73 @@
   </style>
 </head>
 <body>
-  <h1>🎬 Movie Recommendations</h1>
+  <h1>🎬 Vote Your Favorite Movie</h1>
 
-  <div class="movie-card">
-    <h3>Inception</h3>
-    <p>A mind-bending thriller by Christopher Nolan.</p>
+  <div class="movie-grid">
+    <div class="movie" data-id="inception">
+      <img src="https://image.tmdb.org/t/p/w500/qmDpIHrmpJINaRKAfWQfftjCdyi.jpg" alt="Inception" />
+      <div class="vote-count" id="count-inception">Votes: 0</div>
+    </div>
+
+    <div class="movie" data-id="matrix">
+      <img src="https://image.tmdb.org/t/p/w500/aOi8WhZzQZctdVxrQbbpHzxRiXo.jpg" alt="The Matrix" />
+      <div class="vote-count" id="count-matrix">Votes: 0</div>
+    </div>
+
+    <div class="movie" data-id="interstellar">
+      <img src="https://image.tmdb.org/t/p/w500/gEU2QniE6E77NI6lCU6MxlNBvIx.jpg" alt="Interstellar" />
+      <div class="vote-count" id="count-interstellar">Votes: 0</div>
+    </div>
   </div>
 
-  <div class="movie-card">
-    <h3>The Matrix</h3>
-    <p>Reality is an illusion. Are you the One?</p>
-  </div>
-
-  <div class="movie-card">
-    <h3>Interstellar</h3>
-    <p>Time is relative in this space adventure.</p>
-  </div>
-
-  <br />
+  <button id="resultBtn">Show Result</button>
   <a href="/">← Back to Chat</a>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const movieVotes = { inception: 0, matrix: 0, interstellar: 0 };
+
+    // Emit vote on image click
+    document.querySelectorAll('.movie img').forEach(img => {
+      img.addEventListener('click', () => {
+        const movieId = img.parentElement.getAttribute('data-id');
+        socket.emit('voteMovie', movieId);
+      });
+    });
+
+    // Receive updated counts
+    socket.on('updateVotes', (updatedVotes) => {
+      for (let movie in updatedVotes) {
+        movieVotes[movie] = updatedVotes[movie];
+        document.getElementById(`count-${movie}`).innerText = `Votes: ${updatedVotes[movie]}`;
+      }
+    });
+
+    // Request current counts on page load
+    socket.emit('getVotes');
+
+    // Show highest voted movie
+    document.getElementById('resultBtn').addEventListener('click', () => {
+      let maxVotes = -1;
+      let topMovies = [];
+
+      for (let movie in movieVotes) {
+        if (movieVotes[movie] > maxVotes) {
+          maxVotes = movieVotes[movie];
+          topMovies = [movie];
+        } else if (movieVotes[movie] === maxVotes) {
+          topMovies.push(movie);
+        }
+      }
+
+      if (maxVotes === 0) {
+        alert("No votes yet!");
+      } else {
+        const names = topMovies.map(id => id.charAt(0).toUpperCase() + id.slice(1));
+        alert(`🎉 Top Voted Movie${names.length > 1 ? 's' : ''}: ${names.join(', ')} (${maxVotes} vote${maxVotes > 1 ? 's' : ''})`);
+      }
+    });
+  </script>
 </body>
 </html>
