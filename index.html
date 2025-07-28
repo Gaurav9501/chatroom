@@ -1,196 +1,45 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <title>Room-based Chat App</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #ece5dd;
-      margin: 0;
-      padding: 0;
-    }
-
-    #loginScreen, #chatScreen {
-      max-width: 600px;
-      margin: 50px auto;
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-    }
-
-    #loginScreen input {
-      width: 100%;
-      padding: 10px;
-      margin: 10px 0;
-      border-radius: 5px;
-      border: 1px solid #ccc;
-    }
-
-    #loginScreen button {
-      width: 100%;
-      padding: 10px;
-      background-color: #128c7e;
-      color: white;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    #loginScreen button:hover {
-      background-color: #075e54;
-    }
-
-    #messages {
-      list-style: none;
-      padding: 0;
-      height: 400px;
-      overflow-y: scroll;
-      border: 1px solid #ccc;
-      background: #f9f9f9;
-      margin-bottom: 10px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    .message {
-      max-width: 70%;
-      padding: 10px;
-      border-radius: 15px;
-      word-wrap: break-word;
-    }
-
-    .sent {
-      background-color: #dcf8c6;
-      align-self: flex-end;
-      border-bottom-right-radius: 0;
-    }
-
-    .received {
-      background-color: #ffffff;
-      align-self: flex-start;
-      border-bottom-left-radius: 0;
-    }
-
-    #form {
-      display: flex;
-    }
-
-    #input {
-      flex: 1;
-      padding: 10px;
-      border: 1px solid #ccc;
-      border-radius: 20px;
-    }
-
-    #sendBtn {
-      padding: 10px 20px;
-      margin-left: 10px;
-      border: none;
-      border-radius: 20px;
-      background-color: #128c7e;
-      color: white;
-      cursor: pointer;
-    }
-
-    #sendBtn:hover {
-      background-color: #075e54;
-    }
-
-    #changeRoomBtn {
-      background-color: #f44336;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-
-    #changeRoomBtn:hover {
-      background-color: #c0392b;
-    }
-  </style>
+  <title>Chat</title>
 </head>
 <body>
+  <input id="username" placeholder="Your name" />
+  <input id="roomId" placeholder="Room ID" />
+  <button onclick="joinRoom()">Join Room</button>
 
-  <!-- Login Screen -->
-  <div id="loginScreen">
-    <h2>Join Chat Room</h2>
-    <input type="text" id="usernameInput" placeholder="Enter your name" required />
-    <input type="text" id="roomInput" placeholder="Enter room ID" required />
-    <button id="joinBtn">Join</button>
-  </div>
-
-  <!-- Chat Screen -->
-  <div id="chatScreen" style="display: none;">
-    <button id="changeRoomBtn">Change Room</button>
-    <ul id="messages"></ul>
-    <form id="form">
-      <input id="input" autocomplete="off" placeholder="Type a message..." />
-      <button id="sendBtn">Send</button>
-    </form>
-  </div>
+  <ul id="messages"></ul>
+  <form id="messageForm">
+    <input id="messageInput" autocomplete="off" placeholder="Type a message..." />
+    <button>Send</button>
+  </form>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
 
-    const loginScreen = document.getElementById('loginScreen');
-    const chatScreen = document.getElementById('chatScreen');
-    const usernameInput = document.getElementById('usernameInput');
-    const roomInput = document.getElementById('roomInput');
-    const joinBtn = document.getElementById('joinBtn');
-    const changeRoomBtn = document.getElementById('changeRoomBtn');
+    function joinRoom() {
+      const username = document.getElementById('username').value;
+      const roomId = document.getElementById('roomId').value;
+      socket.emit('chat:joinRoom', { username, roomId });
+    }
 
-    const form = document.getElementById('form');
-    const input = document.getElementById('input');
+    const form = document.getElementById('messageForm');
+    const input = document.getElementById('messageInput');
     const messages = document.getElementById('messages');
 
-    let username = '';
-    let roomId = '';
-    const userId = Math.random().toString(36).substring(2, 10);
-
-    joinBtn.addEventListener('click', () => {
-      username = usernameInput.value.trim();
-      roomId = roomInput.value.trim();
-      if (username && roomId) {
-        socket.emit('joinRoom', { roomId, username });
-        loginScreen.style.display = 'none';
-        chatScreen.style.display = 'block';
-        messages.innerHTML = '';
-      }
-    });
-
-    changeRoomBtn.addEventListener('click', () => {
-      chatScreen.style.display = 'none';
-      loginScreen.style.display = 'block';
-      usernameInput.value = username;
-      roomInput.value = '';
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const message = input.value;
+      const roomId = document.getElementById('roomId').value;
+      socket.emit('chat:message', { roomId, message });
       input.value = '';
     });
 
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      if (input.value.trim()) {
-        const message = {
-          text: input.value,
-          senderId: userId,
-          username: username,
-        };
-        socket.emit('chat message', { roomId, message });
-        input.value = '';
-      }
-    });
-
-    socket.on('chat message', (msg) => {
-      const li = document.createElement('li');
-      li.classList.add('message');
-      li.textContent = `${msg.username}: ${msg.text}`;
-      li.classList.add(msg.senderId === userId ? 'sent' : 'received');
-      messages.appendChild(li);
-      messages.scrollTop = messages.scrollHeight;
+    socket.on('chat:message', function(msg) {
+      const item = document.createElement('li');
+      item.textContent = msg;
+      messages.appendChild(item);
     });
   </script>
 </body>
