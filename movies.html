@@ -2,71 +2,77 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Movie Voting</title>
+  <script src="/socket.io/socket.io.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 800px;
-      margin: auto;
-      padding: 20px;
+      text-align: center;
+      background: #f0f2f5;
+    }
+    h2 {
+      margin-top: 20px;
     }
     .movie-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      gap: 20px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-top: 20px;
     }
     .movie {
-      text-align: center;
-      position: relative;
-      border: 1px solid #ccc;
+      background: #fff;
       padding: 10px;
       border-radius: 10px;
-      background: #f9f9f9;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+      width: 160px;
+      position: relative;
     }
     .movie img {
       width: 100%;
       height: auto;
-      cursor: pointer;
       border-radius: 8px;
+      cursor: pointer;
     }
     .vote-count {
-      margin-top: 8px;
-      font-weight: bold;
+      margin-top: 5px;
     }
-    .delete-btn {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background: red;
-      color: white;
-      border: none;
-      border-radius: 50%;
-      cursor: pointer;
-      padding: 4px 8px;
+    #upload-section {
+      margin-top: 30px;
     }
     input[type="text"] {
       padding: 8px;
-      width: 70%;
-      margin-right: 10px;
+      width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
     }
     button {
-      padding: 8px 16px;
+      padding: 8px 12px;
+      margin-left: 5px;
+      border: none;
+      background-color: #007bff;
+      color: white;
+      border-radius: 5px;
       cursor: pointer;
+    }
+    .delete-btn {
+      margin-top: 5px;
+      background-color: #dc3545;
     }
   </style>
 </head>
 <body>
   <h2>🎬 Movie Voting Page</h2>
 
-  <h3>Upload Movie by Image URL</h3>
-  <input type="text" id="imageUrl" placeholder="Enter image URL..." />
-  <button onclick="uploadMovie()">Upload</button>
+  <div id="upload-section">
+    <input type="text" id="imageUrl" placeholder="Enter image URL..." />
+    <button onclick="uploadMovie()">Upload</button>
+    <button id="resultBtn">Show Top Voted Movie</button>
+  </div>
 
   <div class="movie-grid"></div>
 
-  <button id="resultBtn" style="margin-top: 20px;">Show Top Voted Movie</button>
-
-  <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     const movieVotes = {};
@@ -83,7 +89,7 @@
         div.innerHTML = `
           <img src="${movie.image}" alt="Movie Image" />
           <div class="vote-count">Votes: ${movie.votes}</div>
-          ${movie.uploaded ? `<button class="delete-btn">🗑️</button>` : ''}
+          ${movie.uploaded ? `<button class="delete-btn">🗑️ Delete</button>` : ''}
         `;
 
         div.querySelector('img').addEventListener('click', () => {
@@ -109,14 +115,45 @@
     });
 
     document.getElementById('resultBtn').addEventListener('click', () => {
-      const top = Object.entries(movieVotes).reduce((acc, [id, votes]) => {
+      const topMovie = Object.entries(movieVotes).reduce((acc, [id, votes]) => {
         if (!acc || votes > acc.votes) return { id, votes };
-        if (votes === acc.votes) acc.id += `, ${id}`;
         return acc;
       }, null);
 
-      if (!top || top.votes === 0) return alert("No votes yet!");
-      alert(`🎉 Top Voted Movie(s): ${top.id} (${top.votes} vote${top.votes > 1 ? 's' : ''})`);
+      if (!topMovie || topMovie.votes === 0) {
+        alert("No votes yet!");
+        return;
+      }
+
+      // Get movie object from DOM using ID
+      const movie = Array.from(document.querySelectorAll('.movie')).find(m => m.dataset.id === topMovie.id);
+      const imageUrl = movie.querySelector('img').src;
+
+      const win = window.open('', '_blank', 'width=400,height=500');
+      win.document.write(`
+        <html>
+          <head>
+            <title>Top Voted Movie</title>
+            <style>
+              body {
+                font-family: Arial;
+                text-align: center;
+                padding: 20px;
+              }
+              img {
+                max-width: 100%;
+                border-radius: 10px;
+                margin-bottom: 10px;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>🎉 Top Voted Movie</h2>
+            <img src="${imageUrl}" />
+            <p><strong>Votes:</strong> ${topMovie.votes}</p>
+          </body>
+        </html>
+      `);
     });
 
     function uploadMovie() {
