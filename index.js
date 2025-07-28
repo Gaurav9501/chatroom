@@ -6,22 +6,14 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-// Serve static files from current directory
 app.use(express.static(__dirname));
 
 io.on('connection', (socket) => {
-  console.log('A user connected');
-
   socket.on('chat message', (msg) => {
-    io.emit('chat message', msg); // Broadcast to all clients
-  });
-
-  socket.on('disconnect', () => {
-    console.log('A user disconnected');
+    io.emit('chat message', msg); // Broadcast to all users
   });
 });
 
-const PORT = 3000;
-server.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+server.listen(3000, () => {
+  console.log('Server running at http://localhost:3000');
 });
