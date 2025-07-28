@@ -6,184 +6,126 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f0f0f0;
-      padding: 30px;
-      text-align: center;
+      max-width: 800px;
+      margin: auto;
+      padding: 20px;
     }
-
-    h1 {
-      color: #333;
-    }
-
     .movie-grid {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
       gap: 20px;
-      margin-top: 20px;
     }
-
     .movie {
-      background: #fff;
-      border-radius: 10px;
+      text-align: center;
+      position: relative;
+      border: 1px solid #ccc;
       padding: 10px;
-      width: 200px;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      border-radius: 10px;
+      background: #f9f9f9;
     }
-
     .movie img {
       width: 100%;
-      height: 300px;
-      object-fit: cover;
-      border-radius: 8px;
+      height: auto;
       cursor: pointer;
-      transition: transform 0.2s ease;
+      border-radius: 8px;
     }
-
-    .movie img:hover {
-      transform: scale(1.05);
-    }
-
     .vote-count {
-      margin-top: 10px;
+      margin-top: 8px;
       font-weight: bold;
     }
-
-    #resultBtn, #uploadBtn {
-      margin-top: 20px;
-      padding: 10px 20px;
-      background-color: #128c7e;
+    .delete-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background: red;
       color: white;
       border: none;
-      border-radius: 8px;
+      border-radius: 50%;
       cursor: pointer;
+      padding: 4px 8px;
     }
-
-    #uploadInput {
-      margin-top: 20px;
+    input[type="text"] {
+      padding: 8px;
+      width: 70%;
+      margin-right: 10px;
     }
-
-    a {
-      display: block;
-      margin-top: 30px;
-      color: #128c7e;
-      font-weight: bold;
-      text-decoration: none;
-    }
-
-    a:hover {
-      color: #075e54;
+    button {
+      padding: 8px 16px;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h1>🎬 Vote Your Favorite Movie</h1>
+  <h2>🎬 Movie Voting Page</h2>
 
-  <!-- Upload -->
-  <input type="file" id="uploadInput" accept="image/*" />
-  <button id="uploadBtn">Upload Movie</button>
+  <h3>Upload Movie by Image URL</h3>
+  <input type="text" id="imageUrl" placeholder="Enter image URL..." />
+  <button onclick="uploadMovie()">Upload</button>
 
-  <!-- Movie Cards -->
-  <div class="movie-grid" id="movieGrid"></div>
+  <div class="movie-grid"></div>
 
-  <!-- Result -->
-  <button id="resultBtn">Show Result</button>
-  <a href="/">← Back to Chat</a>
+  <button id="resultBtn" style="margin-top: 20px;">Show Top Voted Movie</button>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-    const movieGrid = document.getElementById('movieGrid');
-    const movieVotes = {}; // movieId: count
-    const movies = {}; // movieId: { id, image }
+    const movieVotes = {};
 
-    // Render a movie card
-    function renderMovie(movie) {
-      if (document.getElementById(`movie-${movie.id}`)) return; // already rendered
+    function renderMovies(movies) {
+      const grid = document.querySelector('.movie-grid');
+      grid.innerHTML = '';
 
-      const movieDiv = document.createElement('div');
-      movieDiv.className = 'movie';
-      movieDiv.id = `movie-${movie.id}`;
-      movieDiv.setAttribute('data-id', movie.id);
+      movies.forEach(movie => {
+        const div = document.createElement('div');
+        div.className = 'movie';
+        div.setAttribute('data-id', movie.id);
 
-      const img = document.createElement('img');
-      img.src = movie.image;
-      img.alt = 'Movie';
-      img.addEventListener('click', () => {
-        socket.emit('voteMovie', movie.id);
+        div.innerHTML = `
+          <img src="${movie.image}" alt="Movie Image" />
+          <div class="vote-count">Votes: ${movie.votes}</div>
+          ${movie.uploaded ? `<button class="delete-btn">🗑️</button>` : ''}
+        `;
+
+        div.querySelector('img').addEventListener('click', () => {
+          socket.emit('voteMovie', movie.id);
+        });
+
+        const deleteBtn = div.querySelector('.delete-btn');
+        if (deleteBtn) {
+          deleteBtn.addEventListener('click', () => {
+            socket.emit('deleteMovie', movie.id);
+          });
+        }
+
+        grid.appendChild(div);
       });
-
-      const countDiv = document.createElement('div');
-      countDiv.className = 'vote-count';
-      countDiv.id = `count-${movie.id}`;
-      countDiv.innerText = 'Votes: 0';
-
-      movieDiv.appendChild(img);
-      movieDiv.appendChild(countDiv);
-      movieGrid.appendChild(movieDiv);
     }
 
-    // Show result popup
-    document.getElementById('resultBtn').addEventListener('click', () => {
-      let maxVotes = -1;
-      let top = [];
-
-      for (let id in movieVotes) {
-        if (movieVotes[id] > maxVotes) {
-          maxVotes = movieVotes[id];
-          top = [id];
-        } else if (movieVotes[id] === maxVotes) {
-          top.push(id);
-        }
-      }
-
-      if (maxVotes <= 0) {
-        alert("No votes yet!");
-      } else {
-        alert(`🎉 Top Movie${top.length > 1 ? 's' : ''}: ${top.join(', ')} (${maxVotes} vote${maxVotes > 1 ? 's' : ''})`);
-      }
-    });
-
-    // Upload image
-    document.getElementById('uploadBtn').addEventListener('click', () => {
-      const file = document.getElementById('uploadInput').files[0];
-      if (!file) return alert("Please select an image.");
-
-      const reader = new FileReader();
-      reader.onload = () => {
-        socket.emit('addMovie', reader.result);
-      };
-      reader.readAsDataURL(file);
-    });
-
-    // Receive movie list
-    socket.on('initMovies', (allMovies, allVotes) => {
-      for (let movie of allMovies) {
-        movies[movie.id] = movie;
-        movieVotes[movie.id] = allVotes[movie.id] || 0;
-        renderMovie(movie);
-        document.getElementById(`count-${movie.id}`).innerText = `Votes: ${movieVotes[movie.id]}`;
-      }
-    });
-
-    // Receive single movie
-    socket.on('newMovie', (movie) => {
-      movies[movie.id] = movie;
-      movieVotes[movie.id] = 0;
-      renderMovie(movie);
-    });
-
-    // Update vote counts
-    socket.on('updateVotes', (updatedVotes) => {
-      for (let id in updatedVotes) {
-        movieVotes[id] = updatedVotes[id];
-        const el = document.getElementById(`count-${id}`);
-        if (el) el.innerText = `Votes: ${updatedVotes[id]}`;
-      }
-    });
-
-    // Ask for current data
     socket.emit('getVotes');
+
+    socket.on('updateVotes', (movieList) => {
+      movieList.forEach(m => (movieVotes[m.id] = m.votes));
+      renderMovies(movieList);
+    });
+
+    document.getElementById('resultBtn').addEventListener('click', () => {
+      const top = Object.entries(movieVotes).reduce((acc, [id, votes]) => {
+        if (!acc || votes > acc.votes) return { id, votes };
+        if (votes === acc.votes) acc.id += `, ${id}`;
+        return acc;
+      }, null);
+
+      if (!top || top.votes === 0) return alert("No votes yet!");
+      alert(`🎉 Top Voted Movie(s): ${top.id} (${top.votes} vote${top.votes > 1 ? 's' : ''})`);
+    });
+
+    function uploadMovie() {
+      const imageUrl = document.getElementById('imageUrl').value;
+      if (imageUrl) {
+        socket.emit('addMovie', imageUrl);
+        document.getElementById('imageUrl').value = '';
+      }
+    }
   </script>
 </body>
 </html>
