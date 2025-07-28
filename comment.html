@@ -1,11 +1,72 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Comments</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Public Comments</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #fefefe;
+      max-width: 600px;
+      margin: 40px auto;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      border-radius: 10px;
+    }
+    h1 {
+      text-align: center;
+      color: #128c7e;
+    }
+    textarea {
+      width: 100%;
+      min-height: 120px;
+      padding: 10px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+    button {
+      margin-top: 10px;
+      width: 100%;
+      padding: 12px;
+      background-color: #128c7e;
+      color: white;
+      font-weight: bold;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #075e54;
+    }
+    ul#commentList {
+      margin-top: 30px;
+      list-style-type: none;
+      padding-left: 0;
+      max-height: 300px;
+      overflow-y: auto;
+      border-top: 1px solid #ccc;
+    }
+    ul#commentList li {
+      padding: 12px;
+      border-bottom: 1px solid #eee;
+      background: #f9f9f9;
+      border-radius: 5px;
+      margin-bottom: 10px;
+      word-wrap: break-word;
+    }
+  </style>
 </head>
 <body>
-  <input id="commentInput" placeholder="Write a comment..." />
-  <button onclick="sendComment()">Comment</button>
+  <h1>Leave a Comment</h1>
+  <textarea id="commentInput" placeholder="Write your comment here..."></textarea>
+  <button onclick="sendComment()">Submit Comment</button>
+
   <ul id="commentList"></ul>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -14,7 +75,8 @@
 
     function sendComment() {
       const input = document.getElementById('commentInput');
-      const msg = input.value;
+      const msg = input.value.trim();
+      if (!msg) return;
       socket.emit('comment:new', msg);
       input.value = '';
     }
@@ -22,7 +84,7 @@
     socket.on('comment:new', function(msg) {
       const item = document.createElement('li');
       item.textContent = msg;
-      document.getElementById('commentList').appendChild(item);
+      document.getElementById('commentList').prepend(item);
     });
   </script>
 </body>
