@@ -175,7 +175,7 @@
         alert('Top voted movie data not found.');
         return;
       }
-      // Open new window/tab showing the image only
+      // Open new window/tab showing the image with overlay text
       const win = window.open('', '_blank', 'width=600,height=800');
       win.document.write(`
         <html>
@@ -184,22 +184,44 @@
             <style>
               body {
                 margin: 0;
+                background: #222;
                 display: flex;
                 justify-content: center;
                 align-items: center;
                 height: 100vh;
-                background: #222;
+                overflow: hidden;
+                font-family: Arial, sans-serif;
+                color: white;
               }
-              img {
+              .container {
+                position: relative;
                 max-width: 90vw;
                 max-height: 90vh;
+              }
+              img {
+                display: block;
+                max-width: 100%;
+                max-height: 100%;
                 border-radius: 12px;
                 box-shadow: 0 0 20px rgba(255,255,255,0.3);
+              }
+              .overlay-text {
+                position: absolute;
+                top: 10px;
+                left: 50%;
+                transform: translateX(-50%);
+                font-size: 1.8rem;
+                font-weight: bold;
+                text-shadow: 2px 2px 6px rgba(0,0,0,0.7);
+                pointer-events: none;
               }
             </style>
           </head>
           <body>
-            <img src="${topMovie.image}" alt="Top Voted Movie" />
+            <div class="container">
+              <div class="overlay-text">Top voted movie</div>
+              <img src="${topMovie.image}" alt="Top Voted Movie" />
+            </div>
           </body>
         </html>
       `);
