@@ -2,31 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Chat App</title>
+  <title>Chat App with Rooms</title>
   <style>
-    body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #ece5dd; }
-    #chat { max-width: 600px; margin: 50px auto; background: #fff; border-radius: 10px; padding: 20px; }
+    body { font-family: Arial, sans-serif; background: #ece5dd; margin: 0; }
+    #chat { max-width: 600px; margin: 50px auto; background: #fff; padding: 20px; border-radius: 10px; }
     #messages { list-style: none; padding: 0; height: 400px; overflow-y: scroll; border: 1px solid #ccc; background: #f9f9f9; margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; }
 
-    .message {
-      max-width: 70%;
-      padding: 10px;
-      border-radius: 15px;
-      margin: 5px;
-      word-wrap: break-word;
-    }
-
-    .sent {
-      background-color: #dcf8c6;
-      align-self: flex-end;
-      border-bottom-right-radius: 0;
-    }
-
-    .received {
-      background-color: #ffffff;
-      align-self: flex-start;
-      border-bottom-left-radius: 0;
-    }
+    .message { max-width: 70%; padding: 10px; border-radius: 15px; word-wrap: break-word; }
+    .sent { background-color: #dcf8c6; align-self: flex-end; border-bottom-right-radius: 0; }
+    .received { background-color: #ffffff; align-self: flex-start; border-bottom-left-radius: 0; }
 
     #form { display: flex; }
     #input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 20px; }
@@ -47,11 +31,16 @@
   <script>
     const socket = io();
 
+    // Prompt for room ID and username
+    const roomId = prompt("Enter Room ID:");
+    const username = prompt("Enter your name:");
+    const userId = Math.random().toString(36).substring(2, 10);
+
+    socket.emit('joinRoom', { roomId, username });
+
     const form = document.getElementById('form');
     const input = document.getElementById('input');
     const messages = document.getElementById('messages');
-
-    const userId = Math.random().toString(36).substring(2, 10); // Temporary unique ID for this session
 
     form.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -59,8 +48,9 @@
         const message = {
           text: input.value,
           senderId: userId,
+          username: username,
         };
-        socket.emit('chat message', message);
+        socket.emit('chat message', { roomId, message });
         input.value = '';
       }
     });
@@ -68,12 +58,8 @@
     socket.on('chat message', (msg) => {
       const li = document.createElement('li');
       li.classList.add('message');
-      if (msg.senderId === userId) {
-        li.classList.add('sent');
-      } else {
-        li.classList.add('received');
-      }
-      li.textContent = msg.text;
+      li.textContent = `${msg.username}: ${msg.text}`;
+      li.classList.add(msg.senderId === userId ? 'sent' : 'received');
       messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
     });
