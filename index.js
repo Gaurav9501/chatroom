@@ -8,20 +8,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 
-const movies = [
-  {
-    id: uuidv4(),
-    image: 'https://upload.wikimedia.org/wikipedia/en/9/9a/Trolls_World_Tour_poster.jpg',
-    votes: 0,
-    uploaded: false
-  },
-  {
-    id: uuidv4(),
-    image: 'https://upload.wikimedia.org/wikipedia/en/f/f9/TheAvengers2012Poster.jpg',
-    votes: 0,
-    uploaded: false
-  }
-];
+const movies = [];
 
 app.use(express.static(path.join(__dirname)));
 
