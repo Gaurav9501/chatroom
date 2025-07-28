@@ -13,25 +13,24 @@ const movies = [];
 app.use(express.static(path.join(__dirname)));
 
 io.on('connection', (socket) => {
-  // Movie: Send all movies on new connection
-  socket.emit('updateVotes', movies);
+  console.log('A user connected');
 
-  // Movie: Return current movie list
-  socket.on('getVotes', () => {
-    socket.emit('updateVotes', movies);
+  // =====================
+  // 🎥 Movie Events (movies.html)
+  // =====================
+  socket.on('movie:getVotes', () => {
+    socket.emit('movie:updateVotes', movies);
   });
 
-  // Movie: Vote for a movie
-  socket.on('voteMovie', (movieId) => {
+  socket.on('movie:vote', (movieId) => {
     const movie = movies.find(m => m.id === movieId);
     if (movie) {
       movie.votes++;
-      io.emit('updateVotes', movies);
+      io.emit('movie:updateVotes', movies);
     }
   });
 
-  // Movie: Add a new movie
-  socket.on('addMovie', (imageUrl) => {
+  socket.on('movie:add', (imageUrl) => {
     const newMovie = {
       id: uuidv4(),
       image: imageUrl,
@@ -39,37 +38,39 @@ io.on('connection', (socket) => {
       uploaded: true
     };
     movies.push(newMovie);
-    io.emit('updateVotes', movies);
+    io.emit('movie:updateVotes', movies);
   });
 
-  // Movie: Delete a movie
-  socket.on('deleteMovie', (movieId) => {
+  socket.on('movie:delete', (movieId) => {
     const index = movies.findIndex(m => m.id === movieId && m.uploaded);
     if (index !== -1) {
       movies.splice(index, 1);
-      io.emit('updateVotes', movies);
+      io.emit('movie:updateVotes', movies);
     }
   });
 
-  // ✅ Chat: Join room
-  socket.on('joinRoom', ({ roomId, username }) => {
+  // =====================
+  // 💬 Chat Events (index.html)
+  // =====================
+  socket.on('chat:joinRoom', ({ roomId, username }) => {
     socket.join(roomId);
     socket.data.username = username;
     socket.data.roomId = roomId;
   });
 
-  // ✅ Chat: Receive and broadcast message to room
-  socket.on('chat message', ({ roomId, message }) => {
-    io.to(roomId).emit('chat message', message);
+  socket.on('chat:message', ({ roomId, message }) => {
+    io.to(roomId).emit('chat:message', message);
   });
 
-  socket.on('new-comment', (msg) => {
-    io.emit('new-comment', msg); // Broadcast to all connected users
+  // =====================
+  // 📝 Comment Events (comments.html)
+  // =====================
+  socket.on('comment:new', (msg) => {
+    io.emit('comment:new', msg); // Broadcast to all users
   });
-
 });
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`✅ Server running at http://localhost:${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
