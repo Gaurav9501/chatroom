@@ -78,7 +78,6 @@
     socket.on('comment:all', (allComments) => {
       commentList.innerHTML = '';
       allComments.forEach(comment => {
-        console.log(comment);
         addCommentToList(comment);
       });
     });
@@ -92,7 +91,7 @@
       const item = document.createElement('li');
       item.textContent = `${comment.text}`;
       commentList.prepend(item);
-      console.log(commentList)
+      console.log(comment)
     }
 
     function sendComment() {
