@@ -89,8 +89,7 @@
 
     function addCommentToList(comment) {
       const item = document.createElement('li');
-      const time = new Date(comment.timestamp).toLocaleString();
-      item.textContent = `${comment.text} (${time})`;
+      item.textContent = `${comment.text}`;
       commentList.prepend(item);
     }
 
