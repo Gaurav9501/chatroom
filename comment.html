@@ -88,11 +88,10 @@
     });
 
     function addCommentToList(comment) {
-      console.log("before: "+comment)
+      if (!comment || !comment.text || comment.text.trim() === '') return; // Ignore invalid/empty
       const item = document.createElement('li');
-      item.textContent = `${comment.text}`;
+      item.textContent = comment.text.trim();
       commentList.prepend(item);
-      console.log("after: "+comment)
     }
 
     function sendComment() {
