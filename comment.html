@@ -88,10 +88,11 @@
     });
 
     function addCommentToList(comment) {
+      console.log("before: "+comment)
       const item = document.createElement('li');
       item.textContent = `${comment.text}`;
       commentList.prepend(item);
-      console.log(comment)
+      console.log("after: "+comment)
     }
 
     function sendComment() {
