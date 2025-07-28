@@ -2,6 +2,7 @@ const express = require('express');
 const http = require('http');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const { Server } = require('socket.io');
 
 const app = express();
@@ -51,6 +52,28 @@ app.get('/items', (req, res) => {
   }
 
   res.json(items);
+});
+
+// DELETE image endpoint
+app.delete('/delete-image/:filename', (req, res) => {
+  const filename = req.params.filename;
+
+  if (!imageStats[filename]) {
+    return res.status(404).send('Image not found');
+  }
+
+  delete imageStats[filename];
+
+  const filePath = path.join(__dirname, 'uploads', filename);
+  fs.unlink(filePath, (err) => {
+    if (err) {
+      console.error('Error deleting file:', err);
+      return res.status(500).send('Failed to delete file');
+    }
+
+    sendStats();
+    res.status(200).send('Image deleted');
+  });
 });
 
 // Socket.io: Handle click events
