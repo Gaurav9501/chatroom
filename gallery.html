@@ -66,6 +66,10 @@
     .modal-content button {
       margin-top: 10px;
     }
+
+    button {
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
@@ -120,8 +124,27 @@
         const stat = document.createElement('p');
         stat.textContent = `Clicked: ${count} times`;
 
+        const delBtn = document.createElement('button');
+        delBtn.textContent = 'Delete';
+        delBtn.style.marginTop = '5px';
+        delBtn.onclick = async () => {
+          if (confirm('Delete this image?')) {
+            try {
+              const res = await fetch(`/delete-image/${filename}`, { method: 'DELETE' });
+              if (res.ok) {
+                alert('Image deleted');
+              } else {
+                alert('Failed to delete image');
+              }
+            } catch (e) {
+              alert('Error deleting image');
+            }
+          }
+        };
+
         box.appendChild(img);
         box.appendChild(stat);
+        box.appendChild(delBtn);
       } else {
         const title = document.createElement('div');
         title.className = 'movie-title';
