@@ -9,6 +9,27 @@ const server = http.createServer(app);
 const io = new Server(server);
 
 const movies = [];
+const commnets = [];
+
+
+
+const fs = require('fs');
+const DATA_COMMENTS_FILE = path.join(__dirname, 'comments.json');
+
+let comments = [];
+
+// Load comments from file on startup
+try {
+  const data = fs.readFileSync(DATA_COMMENTS_FILE, 'utf-8');
+  comments = JSON.parse(data);
+} catch (err) {
+  console.log('No saved comments found, starting fresh.');
+}
+
+// Save comments helper
+function saveComments() {
+  fs.writeFileSync(DATA_COMMENTS_FILE, JSON.stringify(comments, null, 2));
+}
 
 app.use(express.static(path.join(__dirname)));
 
@@ -68,6 +89,20 @@ io.on('connection', (socket) => {
   socket.on('comment:new', (msg) => {
     io.emit('comment:new', msg); // Broadcast to all users
   });
+
+
+  socket.emit('comment:all', comments);
+
+  socket.on('comment:new', (msg) => {
+  const comment = {
+    id: uuidv4(),
+    text: msg,
+    timestamp: new Date().toISOString()
+  };
+  comments.push(comment);
+  saveComments();
+  io.emit('comment:new', comment);
+});
 });
 
 const PORT = process.env.PORT || 3000;
