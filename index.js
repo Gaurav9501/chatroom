@@ -1,4 +1,3 @@
-// index.js
 const express = require('express');
 const multer = require('multer');
 const http = require('http');
@@ -20,7 +19,6 @@ app.use(express.static(__dirname));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.json());
 
-// Routes
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
 app.get('/gallery', (req, res) => res.sendFile(path.join(__dirname, 'gallery.html')));
 
@@ -46,9 +44,8 @@ app.get('/items', (req, res) => {
 
 app.delete('/delete-image/:filename', (req, res) => {
   const filename = req.params.filename;
-  if (!imageStats[filename]) {
-    return res.status(404).send('Image not found');
-  }
+  if (!imageStats[filename]) return res.status(404).send('Image not found');
+
   delete imageStats[filename];
   const filePath = path.join(__dirname, 'uploads', filename);
   fs.unlink(filePath, (err) => {
@@ -58,7 +55,6 @@ app.delete('/delete-image/:filename', (req, res) => {
   });
 });
 
-// WebSocket logic
 io.on('connection', (socket) => {
   socket.on('item-clicked', ({ type, key }) => {
     if (type === 'image' && imageStats[key] !== undefined) imageStats[key]++;
