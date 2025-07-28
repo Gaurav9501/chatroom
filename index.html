@@ -161,7 +161,7 @@
       <ul id="messages"></ul>
       <form id="messageForm">
         <input id="messageInput" autocomplete="off" placeholder="Type a message..." />
-        <button>Send</button>
+        <button type="submit">Send</button>
       </form>
     </div>
   </div>
@@ -170,6 +170,7 @@
   <script>
     const socket = io();
     let currentUsername = '';
+
     const joinSection = document.getElementById('joinSection');
     const chatWindow = document.getElementById('chatWindow');
     const messages = document.getElementById('messages');
@@ -199,14 +200,7 @@
 
       if (!message || !roomId || !currentUsername) return;
 
-    socket.on('chat:message', function(msg) {
-  if (!msg || !msg.message || !msg.username) return;
-
-  const item = document.createElement('li');
-  item.textContent = `${msg.username}: ${msg.message}`;
-  messages.appendChild(item);
-});
-
+      socket.emit('chat:message', { roomId, message });
       addMessageToUI(message, true);
       messageInput.value = '';
     });
