@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chat Room with Attachments and Image Overlay</title>
+  <meta charset="UTF-8">
+  <title>Chat Room</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     * {
       box-sizing: border-box;
@@ -36,10 +36,6 @@
       border-radius: 10px;
       box-shadow: 0 0 10px rgba(0,0,0,0.1);
       padding: 20px;
-      display: flex;
-      flex-direction: column;
-      height: 600px;
-      position: relative;
     }
 
     #joinForm {
@@ -49,7 +45,7 @@
     #chatWindow {
       display: none;
       flex-direction: column;
-      height: 100%;
+      height: 500px;
     }
 
     input[type="text"] {
@@ -72,20 +68,6 @@
       cursor: pointer;
     }
 
-    button {
-      padding: 12px;
-      background-color: #128c7e;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
-      cursor: pointer;
-    }
-
-    button:hover {
-      background-color: #075e54;
-    }
-
     #messages {
       list-style-type: none;
       padding: 10px;
@@ -95,9 +77,6 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background: #fafafa;
     }
 
     #messages li {
@@ -106,8 +85,6 @@
       border-radius: 20px;
       word-wrap: break-word;
       position: relative;
-      white-space: pre-wrap;
-      cursor: default;
     }
 
     .sender {
@@ -142,81 +119,63 @@
     form button {
       flex-shrink: 0;
       padding: 12px 20px;
+      background-color: #128c7e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
     }
 
-    /* Attachment Icon & Badge */
-    #fileInputLabel {
+    .attachment-wrapper {
       position: relative;
       cursor: pointer;
-      font-size: 24px;
-      user-select: none;
-      display: flex;
-      align-items: center;
-      color: #128c7e;
     }
 
-    #fileInput {
-      display: none;
+    #attachmentLabel {
+      font-size: 1.5rem;
+      cursor: pointer;
     }
 
-    .file-badge {
+    #fileBadge {
       position: absolute;
       top: -5px;
       right: -5px;
       background: red;
       color: white;
-      font-size: 12px;
-      font-weight: bold;
-      padding: 2px 6px;
       border-radius: 50%;
+      font-size: 0.75rem;
+      padding: 2px 6px;
       display: none;
-      pointer-events: none;
-      user-select: none;
     }
 
-    /* Image preview style */
+    input[type="file"] {
+      display: none;
+    }
+
     .chat-image {
-      max-width: 200px;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      max-width: 100%;
       cursor: pointer;
-      display: block;
+      border-radius: 10px;
       margin-top: 5px;
     }
 
-    /* Overlay for big image */
-    #imageOverlay {
+    #imagePreviewOverlay {
+      position: fixed;
       display: none;
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0, 0, 0, 0.8);
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.85);
       justify-content: center;
       align-items: center;
-      z-index: 1000;
-      border-radius: 10px;
-      flex-direction: column;
+      z-index: 9999;
     }
 
-    #imageOverlay img {
+    #imagePreviewOverlay img {
       max-width: 90%;
-      max-height: 80%;
-      border-radius: 12px;
-      box-shadow: 0 0 20px rgba(255, 255, 255, 0.6);
-    }
-
-    #imageOverlay button {
-      margin-top: 20px;
-      background-color: #128c7e;
-      border: none;
-      padding: 10px 20px;
-      color: white;
-      font-size: 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-
-    #imageOverlay button:hover {
-      background-color: #075e54;
+      max-height: 90%;
+      border-radius: 10px;
     }
   </style>
 </head>
@@ -239,19 +198,21 @@
       <ul id="messages"></ul>
       <form id="messageForm">
         <input id="messageInput" type="text" placeholder="Type your message..." autocomplete="off" />
-        <label id="fileInputLabel" for="fileInput" title="Send a file">📎
-          <span class="file-badge" id="fileBadge">1</span>
-        </label>
-        <input type="file" id="fileInput" />
+        
+        <div class="attachment-wrapper">
+          <label for="attachmentInput" id="attachmentLabel">📎</label>
+          <span id="fileBadge">1</span>
+          <input type="file" id="attachmentInput" accept="image/*">
+        </div>
+
         <button type="submit">Send</button>
       </form>
     </div>
+  </div>
 
-    <!-- Overlay for big image -->
-    <div id="imageOverlay">
-      <img id="overlayImg" src="" alt="Large preview" />
-      <button id="closeOverlayBtn">Close</button>
-    </div>
+  <!-- Image Preview Overlay -->
+  <div id="imagePreviewOverlay" onclick="hideImagePreview()">
+    <img id="imagePreview" src="" alt="Preview" />
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -262,24 +223,19 @@
     const messages = document.getElementById('messages');
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
-    const fileInput = document.getElementById('fileInput');
+    const attachmentInput = document.getElementById('attachmentInput');
     const fileBadge = document.getElementById('fileBadge');
-
-    const imageOverlay = document.getElementById('imageOverlay');
-    const overlayImg = document.getElementById('overlayImg');
-    const closeOverlayBtn = document.getElementById('closeOverlayBtn');
+    const imagePreviewOverlay = document.getElementById('imagePreviewOverlay');
+    const imagePreview = document.getElementById('imagePreview');
 
     let currentUsername = '';
     let currentRoomId = '';
     let selectedFile = null;
 
-    // Hide badge initially
-    fileBadge.style.display = 'none';
-
     function joinRoom() {
       const username = document.getElementById('username').value.trim();
       const roomId = document.getElementById('roomId').value.trim();
-      if (!username || !roomId) return alert('Please enter name and room ID');
+      if (!username || !roomId) return;
 
       currentUsername = username;
       currentRoomId = roomId;
@@ -287,14 +243,12 @@
       socket.emit('chat:joinRoom', { username, roomId });
       joinForm.style.display = 'none';
       chatWindow.style.display = 'flex';
-      messageInput.focus();
     }
 
-    fileInput.addEventListener('change', (e) => {
-      selectedFile = e.target.files[0];
+    attachmentInput.addEventListener('change', () => {
+      selectedFile = attachmentInput.files[0];
       if (selectedFile) {
-        fileBadge.textContent = "1";
-        fileBadge.style.display = 'inline-block';
+        fileBadge.style.display = 'inline';
       } else {
         fileBadge.style.display = 'none';
       }
@@ -305,27 +259,23 @@
 
       const msg = messageInput.value.trim();
 
-      if (!msg && !selectedFile) return;
-
       if (selectedFile) {
+        const fileToSend = selectedFile;
         const reader = new FileReader();
-        reader.onload = () => {
-          const base64Data = reader.result;
+        reader.onload = function(evt) {
           socket.emit('chat:message', {
             roomId: currentRoomId,
-            message: '',
             sender: currentUsername,
-            file: {
-              name: selectedFile.name,
-              type: selectedFile.type,
-              data: base64Data
-            }
+            file: evt.target.result,
+            fileName: fileToSend.name,
+            fileType: fileToSend.type
           });
+
           selectedFile = null;
-          fileInput.value = '';
           fileBadge.style.display = 'none';
+          attachmentInput.value = '';
         };
-        reader.readAsDataURL(selectedFile);
+        reader.readAsDataURL(fileToSend);
       }
 
       if (msg) {
@@ -340,57 +290,37 @@
     });
 
     socket.on('chat:message', (data) => {
-      if ((!data.message && !data.file) || !data.sender) return;
-
       const li = document.createElement('li');
       const isSender = data.sender === currentUsername;
       li.className = isSender ? 'sender' : 'receiver';
 
-      if (data.file) {
-        if (data.file.type.startsWith('image/')) {
-          // Create img element with base64 src
-          const img = document.createElement('img');
-          img.src = data.file.data;
-          img.alt = data.file.name;
-          img.title = data.file.name;
-          img.className = 'chat-image';
-
-          // On click open overlay
-          img.onclick = () => {
-            overlayImg.src = data.file.data;
-            imageOverlay.style.display = 'flex';
-          };
-
-          li.appendChild(document.createTextNode(`${isSender ? 'You' : data.sender}: `));
-          li.appendChild(img);
-        } else {
-          // Non image files: show download link
-          const link = document.createElement('a');
-          link.href = data.file.data;
-          link.download = data.file.name;
-          link.textContent = `${isSender ? 'You' : data.sender}: Download ${data.file.name}`;
-          li.appendChild(link);
-        }
-      } else {
+      if (data.message) {
         li.textContent = `${isSender ? 'You' : data.sender}: ${data.message}`;
+      }
+
+      if (data.file && data.fileType.startsWith('image/')) {
+        const img = document.createElement('img');
+        img.src = data.file;
+        img.alt = data.fileName;
+        img.className = 'chat-image';
+        img.onclick = () => showImagePreview(data.file);
+        li.appendChild(document.createElement('br'));
+        li.appendChild(img);
       }
 
       messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
     });
 
-    closeOverlayBtn.addEventListener('click', () => {
-      imageOverlay.style.display = 'none';
-      overlayImg.src = '';
-    });
+    function showImagePreview(src) {
+      imagePreview.src = src;
+      imagePreviewOverlay.style.display = 'flex';
+    }
 
-    // Also close overlay if user clicks outside the image
-    imageOverlay.addEventListener('click', (e) => {
-      if (e.target === imageOverlay) {
-        imageOverlay.style.display = 'none';
-        overlayImg.src = '';
-      }
-    });
+    function hideImagePreview() {
+      imagePreviewOverlay.style.display = 'none';
+      imagePreview.src = '';
+    }
   </script>
 </body>
 </html>
