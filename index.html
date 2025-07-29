@@ -1,192 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Chat Room</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <title>Chat App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background-color: #f1f1f1;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
     }
-    nav {
-      background-color: #128c7e;
-      padding: 15px;
-      text-align: center;
-    }
-    nav a {
-      color: #fff;
-      margin: 0 20px;
-      text-decoration: none;
-      font-weight: bold;
-      font-size: 1.1rem;
-    }
-    .container {
-      max-width: 800px;
-      margin: 30px auto;
-      background: white;
-      border-radius: 10px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-      padding: 20px;
-    }
-    #joinForm {
-      display: block;
-    }
-    #chatWindow {
+    #chatContainer {
       display: none;
       flex-direction: column;
-      height: 500px;
-    }
-    input[type="text"] {
-      width: 100%;
-      padding: 12px;
-      margin-bottom: 15px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1rem;
-    }
-    #joinChatRoom {
-      padding: 12px;
-      width: 100%;
-      background-color: #128c7e;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-    #joinChatRoom:hover {
-      background-color: #075e54;
+      height: 100vh;
     }
     #messages {
-      list-style-type: none;
-      padding: 10px;
-      margin: 0;
       flex: 1;
+      padding: 10px;
       overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      background-color: #fafafa;
+      background: #fff;
     }
-    #messages li {
-      max-width: 70%;
-      padding: 10px 15px;
-      border-radius: 20px;
-      word-wrap: break-word;
-      position: relative;
-      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+    .message {
+      margin: 5px 0;
+      padding: 10px;
+      background: #e0e0e0;
+      border-radius: 5px;
     }
-    .sender {
+    .own {
+      background: #c1f0c1;
       align-self: flex-end;
-      background-color: #dcf8c6;
-      text-align: right;
-      border-bottom-right-radius: 0;
     }
-    .receiver {
-      align-self: flex-start;
-      background-color: #ececec;
-      text-align: left;
-      border-bottom-left-radius: 0;
-    }
-    form {
+    #messageForm {
       display: flex;
       gap: 10px;
-      margin-top: 15px;
-      align-items: center;
+      padding: 10px;
+      background: #f9f9f9;
+      border-top: 1px solid #ccc;
     }
     #messageInput {
       flex: 1;
-      padding: 12px;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 1rem;
+      padding: 10px;
     }
-    form button {
-      flex-shrink: 0;
-      padding: 12px 20px;
-      background-color: #128c7e;
-      color: white;
+    .file-attachment {
+      font-size: 12px;
+      color: green;
+    }
+    #joinForm {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(to right, #00c6ff, #0072ff);
+    }
+    #joinForm input, #joinForm button {
+      padding: 10px;
+      margin: 10px;
       border: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
+      border-radius: 4px;
     }
-    form button:hover {
-      background-color: #075e54;
+    #joinForm input {
+      width: 80%;
+    }
+    #joinForm button {
+      background: #fff;
+      color: #0072ff;
+      font-weight: bold;
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <nav>
-    <a href="index.html">Chat</a>
-    <a href="movies.html">Movies</a>
-    <a href="comment.html">Comments</a>
-  </nav>
-  <div class="container">
-    <div id="joinForm">
-      <input type="text" id="username" placeholder="Enter your name" />
-      <input type="text" id="roomId" placeholder="Enter room ID" />
-      <button id="joinChatRoom" onclick="joinRoom()">Join Chat Room</button>
-    </div>
-    <div id="chatWindow">
-      <ul id="messages"></ul>
-      <form id="messageForm">
-        <input id="messageInput" type="text" placeholder="Type your message..." autocomplete="off" />
-        <button type="submit">Send</button>
-      </form>
-    </div>
-  </div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
-    const joinForm = document.getElementById('joinForm');
-    const chatWindow = document.getElementById('chatWindow');
-    const messages = document.getElementById('messages');
-    const messageForm = document.getElementById('messageForm');
-    const messageInput = document.getElementById('messageInput');
+<div id="joinForm">
+  <h2 style="color: white;">Join Chat Room</h2>
+  <input type="text" id="username" placeholder="Enter your name" required />
+  <input type="text" id="roomId" placeholder="Enter Room ID" required />
+  <button id="joinBtn">Join Room</button>
+</div>
 
-    let currentUsername = '';
-    let currentRoomId = '';
+<div id="chatContainer">
+  <div id="messages"></div>
+  <form id="messageForm">
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <input type="file" id="attachmentInput" />
+    <span id="fileBadge" class="file-attachment" style="display: none;"></span>
+    <button type="submit">Send</button>
+  </form>
+</div>
 
-    function joinRoom() {
-      const username = document.getElementById('username').value.trim();
-      const roomId = document.getElementById('roomId').value.trim();
-      if (!username || !roomId) {
-        alert('Please enter both username and room ID');
-        return;
-      }
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  const joinForm = document.getElementById('joinForm');
+  const chatContainer = document.getElementById('chatContainer');
+  const joinBtn = document.getElementById('joinBtn');
+  const usernameInput = document.getElementById('username');
+  const roomIdInput = document.getElementById('roomId');
+
+  const messageForm = document.getElementById('messageForm');
+  const messageInput = document.getElementById('messageInput');
+  const messagesDiv = document.getElementById('messages');
+  const attachmentInput = document.getElementById('attachmentInput');
+  const fileBadge = document.getElementById('fileBadge');
+
+  let selectedFile = null;
+  let currentUsername = '';
+  let currentRoomId = '';
+
+  joinBtn.addEventListener('click', () => {
+    const username = usernameInput.value.trim();
+    const roomId = roomIdInput.value.trim();
+
+    if (username && roomId) {
       currentUsername = username;
       currentRoomId = roomId;
-      socket.emit('chat:joinRoom', { username, roomId });
+
+      socket.emit('chat:joinRoom', { roomId, username });
+
       joinForm.style.display = 'none';
-      chatWindow.style.display = 'flex';
+      chatContainer.style.display = 'flex';
+    }
+  });
+
+  socket.on('chat:message', (data) => {
+    const msgDiv = document.createElement('div');
+    msgDiv.classList.add('message');
+    if (data.sender === currentUsername) msgDiv.classList.add('own');
+
+    if (data.message) {
+      msgDiv.innerHTML = `<strong>${data.sender}</strong>: ${data.message}`;
     }
 
-    messageForm.addEventListener('submit', e => {
-      e.preventDefault();
-      const msg = messageInput.value.trim();
-      if (!msg) return;
-      socket.emit('chat:message', { roomId: currentRoomId, message: msg, sender: currentUsername });
-      messageInput.value = '';
-    });
+    if (data.file && data.fileName) {
+      const fileLink = document.createElement('a');
+      fileLink.href = data.file;
+      fileLink.download = data.fileName;
+      fileLink.textContent = `📎 ${data.fileName}`;
+      fileLink.style.display = 'block';
+      fileLink.target = '_blank';
+      msgDiv.appendChild(fileLink);
+    }
 
-    socket.on('chat:message', data => {
-      if (!data || !data.message || !data.sender) return;
-      const li = document.createElement('li');
-      const isSender = data.sender === currentUsername;
-      li.className = isSender ? 'sender' : 'receiver';
-      li.textContent = `${data.sender}: ${data.message}`;
-      messages.appendChild(li);
-      messages.scrollTop = messages.scrollHeight;
-    });
-  </script>
+    messagesDiv.appendChild(msgDiv);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+  });
+
+  attachmentInput.addEventListener('change', () => {
+    selectedFile = attachmentInput.files[0];
+    if (selectedFile) {
+      fileBadge.textContent = `📎 ${selectedFile.name}`;
+      fileBadge.style.display = 'inline';
+    } else {
+      fileBadge.style.display = 'none';
+    }
+  });
+
+  messageForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const msg = messageInput.value.trim();
+
+    if (selectedFile) {
+      const reader = new FileReader();
+      reader.onload = function (evt) {
+        const payload = {
+          roomId: currentRoomId,
+          sender: currentUsername,
+          file: evt.target.result,
+          fileName: selectedFile.name,
+          fileType: selectedFile.type
+        };
+        if (msg) payload.message = msg;
+
+        socket.emit('chat:message', payload);
+
+        // Clear inputs
+        selectedFile = null;
+        attachmentInput.value = '';
+        fileBadge.style.display = 'none';
+        messageInput.value = '';
+      };
+      reader.readAsDataURL(selectedFile);
+    } else if (msg) {
+      socket.emit('chat:message', {
+        roomId: currentRoomId,
+        message: msg,
+        sender: currentUsername
+      });
+      messageInput.value = '';
+    }
+  });
+</script>
 </body>
 </html>
