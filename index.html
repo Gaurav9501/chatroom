@@ -139,6 +139,20 @@
     #fileInput {
       display: none;
     }
+
+    .preview-image {
+      max-width: 200px;
+      max-height: 150px;
+      margin-top: 8px;
+      border-radius: 8px;
+    }
+
+    .file-link {
+      display: block;
+      margin-top: 6px;
+      text-decoration: none;
+      color: #007bff;
+    }
   </style>
 </head>
 <body>
@@ -210,7 +224,7 @@
         });
         messageInput.value = '';
         selectedFile = null;
-        fileInput.value = ''; // clear file input
+        fileInput.value = '';
       };
 
       if (selectedFile) {
@@ -241,29 +255,34 @@
       const isSender = data.sender === currentUsername;
       li.className = isSender ? 'sender' : 'receiver';
 
-      // Sender name
       const senderText = document.createElement('div');
       senderText.style.fontWeight = 'bold';
       senderText.style.marginBottom = '5px';
       senderText.textContent = isSender ? 'You' : data.sender;
       li.appendChild(senderText);
 
-      // Text message
       if (data.message) {
         const text = document.createElement('div');
         text.textContent = data.message;
         li.appendChild(text);
       }
 
-      // File attachment
       if (data.file) {
-        const link = document.createElement('a');
-        link.href = data.file.data;
-        link.download = data.file.name;
-        link.style.display = 'block';
-        link.style.marginTop = '5px';
-        link.textContent = `📎 ${data.file.name}`;
-        li.appendChild(link);
+        const isImage = data.file.type.startsWith('image/');
+        if (isImage) {
+          const img = document.createElement('img');
+          img.src = data.file.data;
+          img.alt = data.file.name;
+          img.className = 'preview-image';
+          li.appendChild(img);
+        } else {
+          const link = document.createElement('a');
+          link.href = data.file.data;
+          link.download = data.file.name;
+          link.className = 'file-link';
+          link.textContent = `📎 ${data.file.name}`;
+          li.appendChild(link);
+        }
       }
 
       messages.appendChild(li);
