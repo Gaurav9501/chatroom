@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat Room</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <title>Chat Room with Notifications</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -66,6 +64,11 @@
       border-radius: 6px;
       font-size: 1.1rem;
       cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #joinChatRoom:hover {
+      background-color: #075e54;
     }
 
     #messages {
@@ -77,6 +80,9 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      background-color: #fafafa;
     }
 
     #messages li {
@@ -85,6 +91,7 @@
       border-radius: 20px;
       word-wrap: break-word;
       position: relative;
+      box-shadow: 0 1px 1px rgba(0,0,0,0.1);
     }
 
     .sender {
@@ -123,59 +130,87 @@
       color: white;
       border: none;
       border-radius: 6px;
+      font-size: 1.1rem;
       cursor: pointer;
+      transition: background-color 0.3s ease;
     }
 
-    .attachment-wrapper {
+    form button:hover {
+      background-color: #075e54;
+    }
+
+    .attachment-label {
       position: relative;
       cursor: pointer;
+      font-size: 24px;
+      color: #128c7e;
+      padding: 8px;
+      user-select: none;
     }
 
-    #attachmentLabel {
-      font-size: 1.5rem;
-      cursor: pointer;
+    .attachment-label input {
+      display: none;
     }
 
-    #fileBadge {
+    .badge {
       position: absolute;
-      top: -5px;
-      right: -5px;
+      top: 0;
+      right: 0;
       background: red;
       color: white;
       border-radius: 50%;
-      font-size: 0.75rem;
-      padding: 2px 6px;
+      font-size: 10px;
+      width: 16px;
+      height: 16px;
+      text-align: center;
+      line-height: 16px;
       display: none;
-    }
-
-    input[type="file"] {
-      display: none;
+      pointer-events: none;
     }
 
     .chat-image {
-      max-width: 100%;
-      cursor: pointer;
+      max-width: 100px;
       border-radius: 10px;
+      cursor: pointer;
       margin-top: 5px;
+      display: block;
     }
 
-    #imagePreviewOverlay {
+    /* Overlay Preview */
+    .overlay {
       position: fixed;
+      top: 0; left: 0;
+      width: 100vw; height: 100vh;
+      background-color: rgba(0,0,0,0.8);
       display: none;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      background-color: rgba(0, 0, 0, 0.85);
-      justify-content: center;
       align-items: center;
-      z-index: 9999;
+      justify-content: center;
+      z-index: 999;
+      cursor: pointer;
     }
 
-    #imagePreviewOverlay img {
+    .overlay img {
       max-width: 90%;
       max-height: 90%;
       border-radius: 10px;
+      box-shadow: 0 0 20px black;
+    }
+
+    /* Notification Button */
+    #enableNotificationsBtn {
+      margin-top: 15px;
+      padding: 12px;
+      width: 100%;
+      background-color: #128c7e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    #enableNotificationsBtn:hover {
+      background-color: #075e54;
     }
   </style>
 </head>
@@ -198,26 +233,26 @@
       <ul id="messages"></ul>
       <form id="messageForm">
         <input id="messageInput" type="text" placeholder="Type your message..." autocomplete="off" />
-        
-        <div class="attachment-wrapper">
-          <label for="attachmentInput" id="attachmentLabel">📎</label>
-          <span id="fileBadge">1</span>
-          <input type="file" id="attachmentInput" accept="image/*">
-        </div>
-
+        <label class="attachment-label" title="Attach Image">
+          📎
+          <span class="badge" id="fileBadge">1</span>
+          <input type="file" id="attachmentInput" accept="image/*" />
+        </label>
         <button type="submit">Send</button>
       </form>
     </div>
+
+    <button id="enableNotificationsBtn" title="Enable Push Notifications">Enable Notifications</button>
   </div>
 
-  <!-- Image Preview Overlay -->
-  <div id="imagePreviewOverlay" onclick="hideImagePreview()">
-    <img id="imagePreview" src="" alt="Preview" />
+  <div id="imageOverlay" class="overlay" onclick="this.style.display='none'">
+    <img id="overlayImg" src="" alt="Preview Image" />
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
+
     const joinForm = document.getElementById('joinForm');
     const chatWindow = document.getElementById('chatWindow');
     const messages = document.getElementById('messages');
@@ -225,17 +260,22 @@
     const messageInput = document.getElementById('messageInput');
     const attachmentInput = document.getElementById('attachmentInput');
     const fileBadge = document.getElementById('fileBadge');
-    const imagePreviewOverlay = document.getElementById('imagePreviewOverlay');
-    const imagePreview = document.getElementById('imagePreview');
+    const enableNotificationsBtn = document.getElementById('enableNotificationsBtn');
 
     let currentUsername = '';
     let currentRoomId = '';
     let selectedFile = null;
 
+    // Hide badge initially
+    fileBadge.style.display = 'none';
+
     function joinRoom() {
       const username = document.getElementById('username').value.trim();
       const roomId = document.getElementById('roomId').value.trim();
-      if (!username || !roomId) return;
+      if (!username || !roomId) {
+        alert('Please enter both username and room ID');
+        return;
+      }
 
       currentUsername = username;
       currentRoomId = roomId;
@@ -243,15 +283,12 @@
       socket.emit('chat:joinRoom', { username, roomId });
       joinForm.style.display = 'none';
       chatWindow.style.display = 'flex';
+      enableNotificationsBtn.style.display = 'block';
     }
 
-    attachmentInput.addEventListener('change', () => {
-      selectedFile = attachmentInput.files[0];
-      if (selectedFile) {
-        fileBadge.style.display = 'inline';
-      } else {
-        fileBadge.style.display = 'none';
-      }
+    attachmentInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
+      fileBadge.style.display = selectedFile ? 'inline-block' : 'none';
     });
 
     messageForm.addEventListener('submit', (e) => {
@@ -260,22 +297,19 @@
       const msg = messageInput.value.trim();
 
       if (selectedFile) {
-        const fileToSend = selectedFile;
         const reader = new FileReader();
         reader.onload = function(evt) {
           socket.emit('chat:message', {
             roomId: currentRoomId,
             sender: currentUsername,
             file: evt.target.result,
-            fileName: fileToSend.name,
-            fileType: fileToSend.type
+            fileName: selectedFile.name,
+            fileType: selectedFile.type
           });
-
-          selectedFile = null;
-          fileBadge.style.display = 'none';
-          attachmentInput.value = '';
         };
-        reader.readAsDataURL(fileToSend);
+        reader.readAsDataURL(selectedFile);
+        selectedFile = null;
+        fileBadge.style.display = 'none';
       }
 
       if (msg) {
@@ -287,6 +321,7 @@
       }
 
       messageInput.value = '';
+      attachmentInput.value = '';
     });
 
     socket.on('chat:message', (data) => {
@@ -294,33 +329,82 @@
       const isSender = data.sender === currentUsername;
       li.className = isSender ? 'sender' : 'receiver';
 
-      if (data.message) {
-        li.textContent = `${isSender ? 'You' : data.sender}: ${data.message}`;
-      }
-
-      if (data.file && data.fileType.startsWith('image/')) {
+      if (data.file && data.fileType && data.fileType.startsWith('image/')) {
         const img = document.createElement('img');
         img.src = data.file;
-        img.alt = data.fileName;
         img.className = 'chat-image';
-        img.onclick = () => showImagePreview(data.file);
-        li.appendChild(document.createElement('br'));
+        img.onclick = () => {
+          document.getElementById('overlayImg').src = data.file;
+          document.getElementById('imageOverlay').style.display = 'flex';
+        };
         li.appendChild(img);
+      }
+
+      if (data.message) {
+        const text = document.createElement('div');
+        text.textContent = `${isSender ? 'You' : data.sender}: ${data.message}`;
+        li.appendChild(text);
       }
 
       messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
     });
 
-    function showImagePreview(src) {
-      imagePreview.src = src;
-      imagePreviewOverlay.style.display = 'flex';
+    // --- Push Notifications ---
+
+    const publicVapidKey = 'BNwGaSbwVrshdsL2H8pFbyeg5UCgJdQKSeGLCiPjoDB-3LyKaBZVjlG8ASOuqUfb7btmdh0NS1CKG6lV2mrnGKY';
+
+    function urlBase64ToUint8Array(base64String) {
+      const padding = '='.repeat((4 - base64String.length % 4) % 4);
+      const base64 = (base64String + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      return outputArray;
     }
 
-    function hideImagePreview() {
-      imagePreviewOverlay.style.display = 'none';
-      imagePreview.src = '';
+    async function registerServiceWorkerAndSubscribe() {
+      try {
+        const registration = await navigator.serviceWorker.register('/sw.js');
+        console.log('Service Worker registered');
+
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicVapidKey)
+        });
+
+        console.log('Push subscribed:', subscription);
+
+        // TODO: Send subscription to server to save and use for push messages
+        // await fetch('/subscribe', {
+        //   method: 'POST',
+        //   body: JSON.stringify(subscription),
+        //   headers: { 'Content-Type': 'application/json' },
+        // });
+
+      } catch (error) {
+        console.error('Service Worker or Push subscription failed:', error);
+      }
     }
+
+    enableNotificationsBtn.addEventListener('click', async () => {
+      if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+        alert('Push notifications are not supported by your browser.');
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        await registerServiceWorkerAndSubscribe();
+        alert('Notifications enabled!');
+        enableNotificationsBtn.style.display = 'none';
+      } else {
+        alert('Notification permission is required to receive alerts.');
+      }
+    });
   </script>
+
 </body>
 </html>

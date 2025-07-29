@@ -1,15 +1,27 @@
 {
-  "name": "chatapp",
+  "name": "modern-chat-app",
   "version": "1.0.0",
-  "description": "Chat app with video calling, room support, and image click tracking",
+  "description": "A modern chat app with image attachments and push notifications",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "dev": "nodemon index.js"
   },
+  "keywords": [
+    "chat",
+    "socket.io",
+    "push-notifications",
+    "express"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "multer": "^1.4.5-lts.1",
-     "uuid": "^9.0.1"
+    "socket.io": "^4.7.1",
+    "uuid": "^9.0.0",
+    "web-push": "^3.5.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
   }
 }

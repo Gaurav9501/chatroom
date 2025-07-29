@@ -1,4 +1,3 @@
-// === index.js ===
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -8,16 +7,19 @@ const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
-// const io = new Server(server);
 
+// Increase max message size for socket.io (50 MB)
 const io = new Server(server, {
-  maxHttpBufferSize: 50e6 // 50 MB (default is 1 MB)
+  maxHttpBufferSize: 50 * 1024 * 1024 // 50 MB
 });
+
+// Data storage
 const movies = [];
 const comments = [];
 
 const DATA_COMMENTS_FILE = path.join(__dirname, 'comments.json');
 
+// Load saved comments on startup
 try {
   const data = fs.readFileSync(DATA_COMMENTS_FILE, 'utf-8');
   comments.push(...JSON.parse(data));
@@ -25,11 +27,17 @@ try {
   console.log('No saved comments found, starting fresh.');
 }
 
+// Helper: Save comments to file
 function saveComments() {
   fs.writeFileSync(DATA_COMMENTS_FILE, JSON.stringify(comments, null, 2));
 }
 
+// Middleware to serve static files (html, css, js, etc.)
 app.use(express.static(path.join(__dirname)));
+
+// Optional: If you want to handle any POST or JSON body in future (not required now)
+// app.use(express.json({ limit: '50mb' }));
+// app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 io.on('connection', (socket) => {
   console.log('A user connected');
@@ -93,6 +101,7 @@ io.on('connection', (socket) => {
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
