@@ -68,18 +68,6 @@
       cursor: pointer;
     }
 
-
-    button {
-      padding: 12px;
-      width: 10%;
-      background-color: #128c7e;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
-      cursor: pointer;
-    }
-
     button:hover {
       background-color: #075e54;
     }
@@ -121,6 +109,7 @@
       display: flex;
       gap: 10px;
       margin-top: 15px;
+      align-items: center;
     }
 
     #messageInput {
@@ -132,8 +121,23 @@
     }
 
     form button {
-      flex-shrink: 0;
       padding: 12px 20px;
+      background-color: #128c7e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1.1rem;
+      cursor: pointer;
+    }
+
+    #fileInputLabel {
+      cursor: pointer;
+      font-size: 24px;
+      user-select: none;
+    }
+
+    #fileInput {
+      display: none;
     }
   </style>
 </head>
@@ -149,13 +153,15 @@
     <div id="joinForm">
       <input type="text" id="username" placeholder="Enter your name" />
       <input type="text" id="roomId" placeholder="Enter room ID" />
-      <button id = "joinChatRoom" onclick="joinRoom()">Join Chat Room</button>
+      <button id="joinChatRoom" onclick="joinRoom()">Join Chat Room</button>
     </div>
 
     <div id="chatWindow">
       <ul id="messages"></ul>
       <form id="messageForm">
         <input id="messageInput" type="text" placeholder="Type your message..." autocomplete="off" />
+        <label id="fileInputLabel" title="Send a file">📎</label>
+        <input type="file" id="fileInput" />
         <button type="submit">Send</button>
       </form>
     </div>
@@ -169,9 +175,12 @@
     const messages = document.getElementById('messages');
     const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
+    const fileInput = document.getElementById('fileInput');
+    const fileInputLabel = document.getElementById('fileInputLabel');
 
     let currentUsername = '';
     let currentRoomId = '';
+    let selectedFile = null;
 
     function joinRoom() {
       const username = document.getElementById('username').value.trim();
@@ -189,22 +198,74 @@
     messageForm.addEventListener('submit', (e) => {
       e.preventDefault();
       const msg = messageInput.value.trim();
-      if (!msg) return;
 
-      socket.emit('chat:message', {
-        roomId: currentRoomId,
-        message: msg,
-        sender: currentUsername
-      });
-      messageInput.value = '';
+      if (!msg && !selectedFile) return;
+
+      const sendMessage = (fileData = null) => {
+        socket.emit('chat:message', {
+          roomId: currentRoomId,
+          message: msg,
+          sender: currentUsername,
+          file: fileData
+        });
+        messageInput.value = '';
+        selectedFile = null;
+        fileInput.value = ''; // clear file input
+      };
+
+      if (selectedFile) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          sendMessage({
+            name: selectedFile.name,
+            type: selectedFile.type,
+            data: reader.result
+          });
+        };
+        reader.readAsDataURL(selectedFile);
+      } else {
+        sendMessage();
+      }
+    });
+
+    fileInputLabel.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    fileInput.addEventListener('change', (e) => {
+      selectedFile = e.target.files[0];
     });
 
     socket.on('chat:message', (data) => {
-      if (!data.message) return;
       const li = document.createElement('li');
       const isSender = data.sender === currentUsername;
       li.className = isSender ? 'sender' : 'receiver';
-      li.textContent = `${isSender ? 'You' : data.sender}: ${data.message}`;
+
+      // Sender name
+      const senderText = document.createElement('div');
+      senderText.style.fontWeight = 'bold';
+      senderText.style.marginBottom = '5px';
+      senderText.textContent = isSender ? 'You' : data.sender;
+      li.appendChild(senderText);
+
+      // Text message
+      if (data.message) {
+        const text = document.createElement('div');
+        text.textContent = data.message;
+        li.appendChild(text);
+      }
+
+      // File attachment
+      if (data.file) {
+        const link = document.createElement('a');
+        link.href = data.file.data;
+        link.download = data.file.name;
+        link.style.display = 'block';
+        link.style.marginTop = '5px';
+        link.textContent = `📎 ${data.file.name}`;
+        li.appendChild(link);
+      }
+
       messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
     });
