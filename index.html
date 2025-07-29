@@ -208,7 +208,6 @@
       font-size: 1.1rem;
       cursor: pointer;
       transition: background-color 0.3s ease;
-      display: none;
     }
     #enableNotificationsBtn:hover {
       background-color: #075e54;
@@ -267,7 +266,6 @@
     let currentRoomId = '';
     let selectedFile = null;
 
-    // Hide badge initially
     fileBadge.style.display = 'none';
 
     function joinRoom() {
@@ -350,19 +348,19 @@
       messages.appendChild(li);
       messages.scrollTop = messages.scrollHeight;
 
-      // Show notification if permission granted and user not focused and not sender
+      // Show notification for new messages when window not focused
       if (Notification.permission === 'granted' && !document.hasFocus() && !isSender) {
         const notifTitle = `New message from ${data.sender}`;
         const notifOptions = {
           body: data.message || 'You received a new message',
-          icon: '/notification-icon.png', // optional, add your icon file in public folder
-          tag: 'chat-message'
+          icon: '/notification-icon.png', // optional icon path
+          tag: `chat-message-${Date.now()}`
         };
         new Notification(notifTitle, notifOptions);
       }
     });
 
-    // --- Push Notifications Setup ---
+    // --- Push Notifications setup ---
 
     const publicVapidKey = 'BNwGaSbwVrshdsL2H8pFbyeg5UCgJdQKSeGLCiPjoDB-3LyKaBZVjlG8ASOuqUfb7btmdh0NS1CKG6lV2mrnGKY';
 
