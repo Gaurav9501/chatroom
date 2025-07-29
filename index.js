@@ -8,8 +8,11 @@ const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server);
+// const io = new Server(server);
 
+const io = new Server(server, {
+  maxHttpBufferSize: 50e6 // 50 MB (default is 1 MB)
+});
 const movies = [];
 const comments = [];
 
