@@ -92,15 +92,13 @@ io.on('connection', (socket) => {
     io.emit('comment:new', comment);
   });
 
-  // 🎨 Drawing Events (multiplayer canvas)
   socket.on('draw', (data) => {
-    // Broadcast drawing to other clients
-    socket.broadcast.emit('draw', data);
+    // Attach senderId so clients can distinguish users
+    io.emit('draw', { ...data, senderId: socket.id });
   });
 
   socket.on('end', () => {
-    // Let others know drawing path ended
-    socket.broadcast.emit('end');
+    io.emit('end', { senderId: socket.id });
   });
 });
 
