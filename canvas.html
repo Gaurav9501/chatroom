@@ -32,7 +32,8 @@
       flex-direction: column;
       align-items: center;
       padding-top: 10px;
-      z-index: 2;
+      z-index: 5;
+      user-select: none;
     }
 
     #eraserToolGroup {
@@ -100,6 +101,7 @@
       font-size: 18px;
       border-radius: 6px;
       flex-shrink: 0;
+      position: relative;
     }
     .tool-btn.active {
       background-color: #2196F3;
@@ -140,6 +142,36 @@
       z-index: 3;
       display: none;
     }
+
+    /* Shape panel styles */
+    #shapePanel {
+      position: absolute;
+      top: 110px; /* below shapeBtn */
+      left: 10px;
+      background: #444;
+      border-radius: 6px;
+      padding: 6px;
+      display: none;
+      flex-direction: column;
+      gap: 6px;
+      z-index: 10;
+      width: 40px;
+      user-select: none;
+    }
+    #shapePanel button {
+      background-color: #666;
+      border: none;
+      color: white;
+      height: 30px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-size: 14px;
+      padding: 0;
+      width: 100%;
+    }
+    #shapePanel button.active {
+      background-color: #2196F3;
+    }
   </style>
 </head>
 <body>
@@ -158,7 +190,20 @@
       />
     </div>
 
+    <button id="undoBtn" class="tool-btn" title="Undo" disabled>↩️</button>
+    <button id="redoBtn" class="tool-btn" title="Redo" disabled>↪️</button>
+
+    <button id="shapeBtn" class="tool-btn" title="Shapes">⬠</button>
+
     <input type="color" id="colorPicker" title="Color Picker" />
+  </div>
+
+  <!-- Shape options panel -->
+  <div id="shapePanel">
+    <button data-shape="rectangle" title="Rectangle">▭</button>
+    <button data-shape="circle" title="Circle">⬤</button>
+    <button data-shape="line" title="Line">／</button>
+    <button data-shape="triangle" title="Triangle">▲</button>
   </div>
 
   <canvas id="canvas"></canvas>
@@ -173,17 +218,37 @@
     const eraserPreview = document.getElementById('eraserPreview');
     const drawPointer = document.getElementById('drawPointer');
 
+    // Create offscreen canvas to fix flickering during shape preview
+    const tempCanvas = document.createElement('canvas');
+    const tempCtx = tempCanvas.getContext('2d');
+    tempCanvas.style.display = 'none';
+    document.body.appendChild(tempCanvas);
+
     let isDrawing = false;
-    let tool = 'pen';
+    let tool = 'pen'; // pen, eraser, shape
+    let shapeType = null; // rectangle, circle, line, triangle
     let color = '#000000';
     const eraserColor = '#ffffff';
     let eraserSize = 10;
 
     const lastPositions = {};
 
+    // Undo/Redo stacks and limit
+    const undoStack = [];
+    const redoStack = [];
+    const maxStackSize = 50;
+
+    // For shapes: store start position
+    let shapeStart = null;
+
     function resizeCanvas() {
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       canvas.width = window.innerWidth - 60;
       canvas.height = window.innerHeight;
+      ctx.putImageData(imageData, 0, 0);
+
+      tempCanvas.width = canvas.width;
+      tempCanvas.height = canvas.height;
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
@@ -195,6 +260,7 @@
       };
     }
 
+    // Draw freehand line for user
     function drawLineForUser(senderId, x, y, color, width) {
       if (!lastPositions[senderId]) {
         lastPositions[senderId] = { x, y };
@@ -216,7 +282,103 @@
       delete lastPositions[senderId];
     }
 
+    function saveState() {
+      if (undoStack.length >= maxStackSize) {
+        undoStack.shift();
+      }
+      undoStack.push(canvas.toDataURL());
+      redoStack.length = 0;
+      updateUndoRedoButtons();
+    }
+
+    function restoreState(stackFrom, stackTo) {
+      if (stackFrom.length === 0) return;
+
+      stackTo.push(canvas.toDataURL());
+
+      const state = stackFrom.pop();
+
+      const img = new Image();
+      img.onload = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        updateUndoRedoButtons();
+      };
+      img.src = state;
+    }
+
+    function undo() {
+      restoreState(undoStack, redoStack);
+    }
+
+    function redo() {
+      restoreState(redoStack, undoStack);
+    }
+
+    function updateUndoRedoButtons() {
+      undoBtn.disabled = undoStack.length === 0;
+      redoBtn.disabled = redoStack.length === 0;
+    }
+
+    // Draw shape on tempCanvas for flicker-free preview
+    function drawShapePreview(start, end, shape, strokeColor, strokeWidth) {
+      tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+      tempCtx.drawImage(canvas, 0, 0);
+      drawShape(tempCtx, start, end, shape, strokeColor, strokeWidth);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(tempCanvas, 0, 0);
+    }
+
+    // Draw shape on given context (tempCtx or ctx)
+    function drawShape(context, start, end, shape, strokeColor, strokeWidth) {
+      context.lineWidth = strokeWidth;
+      context.strokeStyle = strokeColor;
+      context.fillStyle = strokeColor;
+      context.beginPath();
+
+      switch(shape) {
+        case 'rectangle': {
+          const rectX = Math.min(start.x, end.x);
+          const rectY = Math.min(start.y, end.y);
+          const rectWidth = Math.abs(end.x - start.x);
+          const rectHeight = Math.abs(end.y - start.y);
+          context.strokeRect(rectX, rectY, rectWidth, rectHeight);
+          break;
+        }
+        case 'circle': {
+          const centerX = (start.x + end.x) / 2;
+          const centerY = (start.y + end.y) / 2;
+          const radiusX = Math.abs(end.x - start.x) / 2;
+          const radiusY = Math.abs(end.y - start.y) / 2;
+          const radius = Math.min(radiusX, radiusY);
+          context.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+          context.stroke();
+          break;
+        }
+        case 'line': {
+          context.moveTo(start.x, start.y);
+          context.lineTo(end.x, end.y);
+          context.stroke();
+          break;
+        }
+        case 'triangle': {
+          context.moveTo((start.x + end.x) / 2, start.y);
+          context.lineTo(end.x, end.y);
+          context.lineTo(start.x, end.y);
+          context.closePath();
+          context.stroke();
+          break;
+        }
+      }
+    }
     function startDrawing(e) {
+      if (tool === 'shape' && shapeType) {
+        shapeStart = getPos(e);
+        isDrawing = true;
+        drawPointer.style.display = 'block';  // Show pointer on shape start
+        eraserPreview.style.display = 'none';
+        return;
+      }
       isDrawing = true;
       const { x, y } = getPos(e);
       drawLineForUser('local', x, y, tool === 'eraser' ? eraserColor : color, tool === 'eraser' ? eraserSize : 4);
@@ -228,17 +390,40 @@
       });
     }
 
-    function stopDrawing() {
+    function stopDrawing(e) {
+      if (!isDrawing) return;
       isDrawing = false;
+
+      if (tool === 'shape' && shapeType && shapeStart) {
+        const shapeEnd = getPos(e);
+        // Draw final shape on main ctx (not temp)
+        drawShape(ctx, shapeStart, shapeEnd, shapeType, color, 4);
+        saveState();
+
+        shapeStart = null;
+        drawPointer.style.display = 'none';
+        return;
+      }
+
       ctx.beginPath();
       socket.emit('end');
       endUserDraw('local');
       drawPointer.style.display = 'none';
+
+      saveState();
     }
 
     function drawMove(e) {
       const { x, y } = getPos(e);
       if (isDrawing) {
+        if (tool === 'shape' && shapeType && shapeStart) {
+          drawShapePreview(shapeStart, { x, y }, shapeType, color, 4);
+          // Show red pointer dot while drawing shape
+          drawPointer.style.display = 'block';
+          drawPointer.style.left = (x + 60 - 4) + 'px';
+          drawPointer.style.top = (y - 4) + 'px';
+          return;
+        }
         drawLineForUser('local', x, y, tool === 'eraser' ? eraserColor : color, tool === 'eraser' ? eraserSize : 4);
         socket.emit('draw', {
           x,
@@ -252,8 +437,8 @@
           drawPointer.style.top = (y - 4) + 'px';
         }
       } else {
-        if (tool === 'pen') {
-          // Show pointer even when not drawing but hovering with pen
+        if (tool === 'pen' || tool === 'shape') {
+          // Show pointer on hover for pen and shape
           drawPointer.style.display = 'block';
           drawPointer.style.left = (x + 60 - 4) + 'px';
           drawPointer.style.top = (y - 4) + 'px';
@@ -269,6 +454,7 @@
     canvas.addEventListener('mouseleave', () => {
       eraserPreview.style.display = 'none';
       drawPointer.style.display = 'none';
+      if (isDrawing) stopDrawing();
     });
 
     canvas.addEventListener('touchstart', startDrawing);
@@ -289,24 +475,38 @@
     const eraserBtn = document.getElementById('eraserBtn');
     const eraserSizeSlider = document.getElementById('eraserSizeSlider');
     const colorPicker = document.getElementById('colorPicker');
+    const undoBtn = document.getElementById('undoBtn');
+    const redoBtn = document.getElementById('redoBtn');
+    const shapeBtn = document.getElementById('shapeBtn');
+    const shapePanel = document.getElementById('shapePanel');
+    const shapeButtons = shapePanel.querySelectorAll('button');
 
     penBtn.addEventListener('click', () => {
       tool = 'pen';
+      shapeType = null;
       penBtn.classList.add('active');
       eraserBtn.classList.remove('active');
+      shapeBtn.classList.remove('active');
       eraserSizeSlider.style.display = 'none';
       eraserPreview.style.display = 'none';
-      drawPointer.style.display = 'block'; // show pointer on hover for pen
+      shapePanel.style.display = 'none';
+      drawPointer.style.display = 'block';
     });
 
     eraserBtn.addEventListener('click', () => {
       tool = 'eraser';
+      shapeType = null;
       penBtn.classList.remove('active');
       eraserBtn.classList.add('active');
+      shapeBtn.classList.remove('active');
       eraserSizeSlider.style.display = 'block';
       eraserPreview.style.display = 'block';
-      drawPointer.style.display = 'none'; // hide pointer for eraser
+      shapePanel.style.display = 'none';
+      drawPointer.style.display = 'none';
     });
+
+    undoBtn.addEventListener('click', undo);
+    redoBtn.addEventListener('click', redo);
 
     colorPicker.addEventListener('input', (e) => {
       color = e.target.value;
@@ -316,6 +516,47 @@
       eraserSize = parseInt(e.target.value);
     });
 
+    shapeBtn.addEventListener('click', () => {
+      const isVisible = shapePanel.style.display === 'flex';
+      if (isVisible) {
+        shapePanel.style.display = 'none';
+        shapeBtn.classList.remove('active');
+        // If shape was active, reset to pen
+        if (tool === 'shape') {
+          tool = 'pen';
+          shapeType = null;
+          penBtn.classList.add('active');
+          drawPointer.style.display = 'block';
+        }
+      } else {
+        shapePanel.style.display = 'flex';
+        shapeBtn.classList.add('active');
+        penBtn.classList.remove('active');
+        eraserBtn.classList.remove('active');
+        eraserSizeSlider.style.display = 'none';
+        eraserPreview.style.display = 'none';
+        tool = 'shape';
+        drawPointer.style.display = 'none'; // Initially hidden, will show on hover by drawMove
+      }
+    });
+
+    shapeButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        shapeButtons.forEach(btn => btn.classList.remove('active'));
+        button.classList.add('active');
+        shapeType = button.getAttribute('data-shape');
+        tool = 'shape';
+        // Hide eraser UI if open
+        eraserSizeSlider.style.display = 'none';
+        eraserPreview.style.display = 'none';
+        penBtn.classList.remove('active');
+        eraserBtn.classList.remove('active');
+        shapeBtn.classList.add('active');
+        drawPointer.style.display = 'block'; // Show pointer for shape
+      });
+    });
+
+    // Show eraser preview on mouse move only when eraser selected
     canvas.addEventListener('mousemove', (e) => {
       if (tool === 'eraser') {
         const x = e.clientX;
@@ -329,6 +570,15 @@
         eraserPreview.style.display = 'none';
       }
     });
+
+    // Initialize undo stack with blank canvas state and set color picker value
+    window.onload = () => {
+      // Start with blank white canvas
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      saveState();
+      colorPicker.value = color;
+    };
   </script>
 </body>
 </html>
