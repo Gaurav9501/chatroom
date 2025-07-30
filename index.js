@@ -8,11 +8,11 @@ const fs = require('fs');
 
 const app = express();
 const server = http.createServer(app);
-// const io = new Server(server);
 
 const io = new Server(server, {
   maxHttpBufferSize: 50e6 // 50 MB (default is 1 MB)
 });
+
 const movies = [];
 const comments = [];
 
@@ -90,6 +90,17 @@ io.on('connection', (socket) => {
     comments.push(comment);
     saveComments();
     io.emit('comment:new', comment);
+  });
+
+  // 🎨 Drawing Events (multiplayer canvas)
+  socket.on('draw', (data) => {
+    // Broadcast drawing to other clients
+    socket.broadcast.emit('draw', data);
+  });
+
+  socket.on('end', () => {
+    // Let others know drawing path ended
+    socket.broadcast.emit('end');
   });
 });
 
