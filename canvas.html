@@ -128,6 +128,18 @@
       display: none;
       mix-blend-mode: difference;
     }
+
+    /* 🎯 Pointer Style */
+    #drawPointer {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      background-color: red;
+      border-radius: 50%;
+      pointer-events: none;
+      z-index: 3;
+      display: none;
+    }
   </style>
 </head>
 <body>
@@ -151,6 +163,7 @@
 
   <canvas id="canvas"></canvas>
   <div id="eraserPreview"></div>
+  <div id="drawPointer"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
@@ -158,18 +171,16 @@
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
     const eraserPreview = document.getElementById('eraserPreview');
+    const drawPointer = document.getElementById('drawPointer');
 
-    // Tool state
     let isDrawing = false;
     let tool = 'pen';
     let color = '#000000';
-    const eraserColor = '#ffffff'; // match canvas background
+    const eraserColor = '#ffffff';
     let eraserSize = 10;
 
-    // Track last positions for each sender to keep brushes independent
     const lastPositions = {};
 
-    // Resize canvas
     function resizeCanvas() {
       canvas.width = window.innerWidth - 60;
       canvas.height = window.innerHeight;
@@ -177,7 +188,6 @@
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    // Get mouse/touch position relative to canvas
     function getPos(e) {
       return {
         x: (e.clientX || (e.touches && e.touches[0].clientX)) - 60,
@@ -185,10 +195,8 @@
       };
     }
 
-    // Draw line for a specific user (senderId)
     function drawLineForUser(senderId, x, y, color, width) {
       if (!lastPositions[senderId]) {
-        // First point for this sender
         lastPositions[senderId] = { x, y };
         ctx.beginPath();
         ctx.moveTo(x, y);
@@ -208,7 +216,6 @@
       delete lastPositions[senderId];
     }
 
-    // Local user drawing handlers
     function startDrawing(e) {
       isDrawing = true;
       const { x, y } = getPos(e);
@@ -226,30 +233,49 @@
       ctx.beginPath();
       socket.emit('end');
       endUserDraw('local');
+      drawPointer.style.display = 'none';
     }
 
     function drawMove(e) {
-      if (!isDrawing) return;
       const { x, y } = getPos(e);
-      drawLineForUser('local', x, y, tool === 'eraser' ? eraserColor : color, tool === 'eraser' ? eraserSize : 4);
-      socket.emit('draw', {
-        x,
-        y,
-        color: tool === 'eraser' ? eraserColor : color,
-        width: tool === 'eraser' ? eraserSize : 4
-      });
+      if (isDrawing) {
+        drawLineForUser('local', x, y, tool === 'eraser' ? eraserColor : color, tool === 'eraser' ? eraserSize : 4);
+        socket.emit('draw', {
+          x,
+          y,
+          color: tool === 'eraser' ? eraserColor : color,
+          width: tool === 'eraser' ? eraserSize : 4
+        });
+        if (tool === 'pen') {
+          drawPointer.style.display = 'block';
+          drawPointer.style.left = (x + 60 - 4) + 'px';
+          drawPointer.style.top = (y - 4) + 'px';
+        }
+      } else {
+        if (tool === 'pen') {
+          // Show pointer even when not drawing but hovering with pen
+          drawPointer.style.display = 'block';
+          drawPointer.style.left = (x + 60 - 4) + 'px';
+          drawPointer.style.top = (y - 4) + 'px';
+        } else {
+          drawPointer.style.display = 'none';
+        }
+      }
     }
 
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mousemove', drawMove);
+    canvas.addEventListener('mouseleave', () => {
+      eraserPreview.style.display = 'none';
+      drawPointer.style.display = 'none';
+    });
+
     canvas.addEventListener('touchstart', startDrawing);
     canvas.addEventListener('touchend', stopDrawing);
     canvas.addEventListener('touchmove', drawMove);
 
-    // Receiving draw events from others
     socket.on('draw', ({ senderId, x, y, color, width }) => {
-      // Ignore our own local events (optional)
       if (senderId === socket.id) return;
       drawLineForUser(senderId, x, y, color, width);
     });
@@ -259,11 +285,9 @@
       endUserDraw(senderId);
     });
 
-    // Toolbar controls
     const penBtn = document.getElementById('penBtn');
     const eraserBtn = document.getElementById('eraserBtn');
     const eraserSizeSlider = document.getElementById('eraserSizeSlider');
-    const eraserPreviewDiv = eraserPreview;
     const colorPicker = document.getElementById('colorPicker');
 
     penBtn.addEventListener('click', () => {
@@ -271,7 +295,8 @@
       penBtn.classList.add('active');
       eraserBtn.classList.remove('active');
       eraserSizeSlider.style.display = 'none';
-      eraserPreviewDiv.style.display = 'none';
+      eraserPreview.style.display = 'none';
+      drawPointer.style.display = 'block'; // show pointer on hover for pen
     });
 
     eraserBtn.addEventListener('click', () => {
@@ -279,7 +304,8 @@
       penBtn.classList.remove('active');
       eraserBtn.classList.add('active');
       eraserSizeSlider.style.display = 'block';
-      eraserPreviewDiv.style.display = 'block';
+      eraserPreview.style.display = 'block';
+      drawPointer.style.display = 'none'; // hide pointer for eraser
     });
 
     colorPicker.addEventListener('input', (e) => {
@@ -290,25 +316,19 @@
       eraserSize = parseInt(e.target.value);
     });
 
-    // Show eraser preview circle at cursor position
     canvas.addEventListener('mousemove', (e) => {
       if (tool === 'eraser') {
         const x = e.clientX;
         const y = e.clientY;
-        eraserPreviewDiv.style.display = 'block';
-        eraserPreviewDiv.style.left = (x - eraserSize / 2) + 'px';
-        eraserPreviewDiv.style.top = (y - eraserSize / 2) + 'px';
-        eraserPreviewDiv.style.width = eraserSize + 'px';
-        eraserPreviewDiv.style.height = eraserSize + 'px';
+        eraserPreview.style.display = 'block';
+        eraserPreview.style.left = (x - eraserSize / 2) + 'px';
+        eraserPreview.style.top = (y - eraserSize / 2) + 'px';
+        eraserPreview.style.width = eraserSize + 'px';
+        eraserPreview.style.height = eraserSize + 'px';
       } else {
-        eraserPreviewDiv.style.display = 'none';
+        eraserPreview.style.display = 'none';
       }
-    });
-
-    canvas.addEventListener('mouseleave', () => {
-      eraserPreviewDiv.style.display = 'none';
     });
   </script>
 </body>
 </html>
-    
