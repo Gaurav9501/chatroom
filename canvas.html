@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Multiplayer Drawing</title>
+  <title>Multiplayer Drawing with Sidebar Toolbar</title>
   <style>
     html, body {
       margin: 0;
@@ -11,70 +11,220 @@
       height: 100%;
     }
 
-    canvas {
+    #canvas {
+      position: absolute;
+      top: 0;
+      left: 60px;
+      width: calc(100% - 60px);
+      height: 100%;
       display: block;
-      touch-action: none;
+      cursor: none;
+    }
+
+    #toolbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 60px;
+      height: 100%;
+      background-color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 10px;
+      z-index: 2;
+    }
+
+    /* Eraser group: eraser btn + slider horizontally */
+    #eraserToolGroup {
+      display: flex;
+      align-items: center;
+      margin: 6px 0;
+      width: 100%;
+      justify-content: center;
+    }
+
+    #eraserBtn {
+      width: 40px;
+      height: 40px;
+      font-size: 18px;
+      background-color: #555;
+      border: none;
+      color: white;
+      border-radius: 6px 0 0 6px; /* rounded left corners */
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    #eraserBtn.active {
+      background-color: #2196F3;
+    }
+
+    #eraserSizeSlider {
+      width: 80px;
+      margin-left: 4px;
+      border-radius: 0 6px 6px 0; /* rounded right corners */
+      display: none;
+      -webkit-appearance: none;
+      background: #555;
+      cursor: pointer;
+      height: 6px;
+    }
+    #eraserSizeSlider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #2196F3;
+      cursor: pointer;
+      border-radius: 50%;
+      border: none;
+      margin-top: -5px;
+    }
+    #eraserSizeSlider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      background: #2196F3;
+      cursor: pointer;
+      border-radius: 50%;
+      border: none;
+    }
+
+    /* Other buttons */
+    .tool-btn {
+      background-color: #555;
+      border: none;
+      color: white;
+      padding: 8px;
+      margin: 6px 0;
+      width: 40px;
+      height: 40px;
+      cursor: pointer;
+      font-size: 18px;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .tool-btn.active {
+      background-color: #2196F3;
+    }
+
+    #penBtn {
+      /* separate from eraser group */
+      border-radius: 6px;
+    }
+
+    #colorPicker {
+      margin-top: 10px;
+      width: 40px;
+      height: 40px;
+      border: none;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    #eraserPreview {
+      position: absolute;
+      pointer-events: none;
+      border: 1.5px solid #000;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.5);
+      z-index: 1;
+      display: none;
+      mix-blend-mode: difference; /* makes preview visible on any background */
     }
   </style>
 </head>
 <body>
+  <div id="toolbar">
+    <button id="penBtn" class="tool-btn active" title="Pen">🖌️</button>
+
+    <div id="eraserToolGroup">
+      <button id="eraserBtn" title="Eraser">🧽</button>
+      <input
+        type="range"
+        id="eraserSizeSlider"
+        min="2"
+        max="50"
+        value="10"
+        title="Eraser Size"
+      />
+    </div>
+
+    <input type="color" id="colorPicker" title="Color Picker" />
+  </div>
+
   <canvas id="canvas"></canvas>
+  <div id="eraserPreview"></div>
 
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
-
     const canvas = document.getElementById('canvas');
     const ctx = canvas.getContext('2d');
+    const eraserPreview = document.getElementById('eraserPreview');
+
+    // Tool state
+    let isDrawing = false;
+    let tool = 'pen';
+    let color = '#000000';
+    const eraserColor = '#ffffff'; // match canvas background
+    let eraserSize = 10;
 
     // Resize canvas
     function resizeCanvas() {
-      canvas.width = window.innerWidth;
+      canvas.width = window.innerWidth - 60;
       canvas.height = window.innerHeight;
     }
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
-    let drawing = false;
-
+    // Get mouse/touch position relative to canvas
     function getPos(e) {
       return {
-        x: e.clientX || (e.touches && e.touches[0].clientX),
+        x: (e.clientX || (e.touches && e.touches[0].clientX)) - 60,
         y: e.clientY || (e.touches && e.touches[0].clientY)
       };
     }
 
-    function startDrawing(e) {
-      drawing = true;
-      const { x, y } = getPos(e);
-      drawLine(x, y);
-      socket.emit('draw', { x, y });
-    }
-
-    function stopDrawing() {
-      drawing = false;
-      ctx.beginPath();
-      socket.emit('end');
-    }
-
-    function drawMove(e) {
-      if (!drawing) return;
-      const { x, y } = getPos(e);
-      drawLine(x, y);
-      socket.emit('draw', { x, y });
-    }
-
-    function drawLine(x, y, remote = false) {
-      ctx.lineWidth = 3;
+    function drawLine(x, y, remote = false, remoteColor = null, lineWidth = 4) {
+      ctx.lineWidth = lineWidth;
       ctx.lineCap = 'round';
-      ctx.strokeStyle = remote ? '#f00' : '#00f'; // Red for others
+      ctx.strokeStyle = remote ? (remoteColor || '#000') : (tool === 'eraser' ? eraserColor : color);
       ctx.lineTo(x, y);
       ctx.stroke();
       ctx.beginPath();
       ctx.moveTo(x, y);
     }
 
-    // Local drawing
+    function startDrawing(e) {
+      isDrawing = true;
+      const { x, y } = getPos(e);
+      drawLine(x, y, false, null, tool === 'eraser' ? eraserSize : 4);
+      socket.emit('draw', {
+        x,
+        y,
+        color: tool === 'eraser' ? eraserColor : color,
+        width: tool === 'eraser' ? eraserSize : 4
+      });
+    }
+
+    function stopDrawing() {
+      isDrawing = false;
+      ctx.beginPath();
+      socket.emit('end');
+    }
+
+    function drawMove(e) {
+      if (!isDrawing) return;
+      const { x, y } = getPos(e);
+      drawLine(x, y, false, null, tool === 'eraser' ? eraserSize : 4);
+      socket.emit('draw', {
+        x,
+        y,
+        color: tool === 'eraser' ? eraserColor : color,
+        width: tool === 'eraser' ? eraserSize : 4
+      });
+    }
+
     canvas.addEventListener('mousedown', startDrawing);
     canvas.addEventListener('mouseup', stopDrawing);
     canvas.addEventListener('mousemove', drawMove);
@@ -82,13 +232,62 @@
     canvas.addEventListener('touchend', stopDrawing);
     canvas.addEventListener('touchmove', drawMove);
 
-    // Handle drawing from other users
-    socket.on('draw', ({ x, y }) => {
-      drawLine(x, y, true);
+    socket.on('draw', ({ x, y, color, width }) => {
+      drawLine(x, y, true, color, width);
     });
 
     socket.on('end', () => {
       ctx.beginPath();
+    });
+
+    // Toolbar buttons and inputs
+    const penBtn = document.getElementById('penBtn');
+    const eraserBtn = document.getElementById('eraserBtn');
+    const eraserSizeSlider = document.getElementById('eraserSizeSlider');
+    const eraserPreviewDiv = eraserPreview;
+    const colorPicker = document.getElementById('colorPicker');
+
+    penBtn.addEventListener('click', () => {
+      tool = 'pen';
+      penBtn.classList.add('active');
+      eraserBtn.classList.remove('active');
+      eraserSizeSlider.style.display = 'none';
+      eraserPreviewDiv.style.display = 'none';
+    });
+
+    eraserBtn.addEventListener('click', () => {
+      tool = 'eraser';
+      penBtn.classList.remove('active');
+      eraserBtn.classList.add('active');
+      eraserSizeSlider.style.display = 'block';
+      eraserPreviewDiv.style.display = 'block';
+    });
+
+    colorPicker.addEventListener('input', (e) => {
+      color = e.target.value;
+    });
+
+    eraserSizeSlider.addEventListener('input', (e) => {
+      eraserSize = parseInt(e.target.value);
+    });
+
+    // Show eraser preview circle at cursor position
+    canvas.addEventListener('mousemove', (e) => {
+      if (tool === 'eraser') {
+        const x = e.clientX;
+        const y = e.clientY;
+        eraserPreviewDiv.style.display = 'block';
+        eraserPreviewDiv.style.left = (x - eraserSize / 2) + 'px';
+        eraserPreviewDiv.style.top = (y - eraserSize / 2) + 'px';
+        eraserPreviewDiv.style.width = eraserSize + 'px';
+        eraserPreviewDiv.style.height = eraserSize + 'px';
+      } else {
+        eraserPreviewDiv.style.display = 'none';
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      eraserPreviewDiv.style.display = 'none';
     });
   </script>
 </body>
